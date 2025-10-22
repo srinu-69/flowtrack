@@ -129,12 +129,15 @@
 #     await session.delete(obj)
 #     await session.commit()
 #     return True
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, update, delete
+from sqlalchemy.ext.asyncio import AsyncSession 
 from typing import List, Optional
 from datetime import datetime
-from . import models, schemas
-import bcrypt
+from . import models, schemas 
+from .models import UserProfile 
+from .schemas import UserProfileCreate, UserProfileUpdate 
+import bcrypt 
+
 
 
 # Helpers to normalize inputs to DB-expected strings
@@ -188,7 +191,7 @@ async def get_asset(session: AsyncSession, asset_id: int) -> Optional[models.Ass
     res = await session.execute(q)
     return res.scalars().first()
 
-async def list_assets(session: AsyncSession, status: Optional[str] = None) -> List[models.Asset]:
+async def list_assets(session: AsyncSession, status: Optional[str] = None, user_email: Optional[str] = None) -> List[models.Asset]:
     q = select(models.Asset)
     if status:
         # Map frontend status to database status
@@ -199,7 +202,9 @@ async def list_assets(session: AsyncSession, status: Optional[str] = None) -> Li
         }
         db_status = status_map.get(status, status)
         q = q.where(models.Asset.status == db_status)
-    q = q.order_by(models.Asset.assigned_date.desc())
+    if user_email:
+        q = q.where(models.Asset.email == user_email)
+    q = q.order_by(models.Asset.open_date.desc())
     res = await session.execute(q)
     return res.scalars().all()
 
@@ -210,12 +215,12 @@ async def create_asset(session: AsyncSession, asset_in: schemas.AssetCreate) -> 
     loc_val = _normalize_location(asset_in.location) or 'WFO'
 
     obj = models.Asset(
-        email_id=asset_in.email,
-        asset_type=type_val,
+        email=asset_in.email,
+        type=type_val,
         location=loc_val,
         status=status_val,
         description=asset_in.description,
-        assigned_date=datetime.utcnow(),
+        open_date=datetime.utcnow(),
     )
     session.add(obj)
     await session.commit()
@@ -230,9 +235,9 @@ async def update_asset(session: AsyncSession, asset_id: int, asset_in: schemas.A
     # Use normalization helpers for updates as well
     
     if asset_in.email is not None:
-        obj.email_id = asset_in.email
+        obj.email = asset_in.email
     if asset_in.type is not None:
-        obj.asset_type = _normalize_type(asset_in.type)
+        obj.type = _normalize_type(asset_in.type)
     if asset_in.location is not None:
         obj.location = _normalize_location(asset_in.location)
     if asset_in.status is not None:
@@ -275,3 +280,34 @@ async def get_user_by_email(session: AsyncSession, email: str) -> Optional[model
     q = select(models.User).where(models.User.email == email)
     res = await session.execute(q)
     return res.scalars().first()
+
+
+
+async def get_users(db: AsyncSession):
+    result = await db.execute(select(UserProfile))
+    return result.scalars().all()
+
+async def get_user(db: AsyncSession, user_id: int):
+    result = await db.execute(select(UserProfile).where(UserProfile.user_id == user_id))
+    return result.scalar_one_or_none()
+
+async def create_user_profile(db: AsyncSession, user: UserProfileCreate):
+    db_user = UserProfile(**user.dict())
+    db.add(db_user)
+    await db.commit()
+    await db.refresh(db_user)
+    return db_user
+
+async def update_user(db: AsyncSession, user_id: int, user: UserProfileUpdate):
+    await db.execute(
+        update(UserProfile)
+        .where(UserProfile.user_id == user_id)
+        .values(**user.dict(exclude_unset=True))
+    )
+    await db.commit()
+    return await get_user(db, user_id)
+
+async def delete_user(db: AsyncSession, user_id: int):
+    await db.execute(delete(UserProfile).where(UserProfile.user_id == user_id))
+    await db.commit()
+    return {"message": "User deleted successfully"}

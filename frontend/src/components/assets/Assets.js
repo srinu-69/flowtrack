@@ -20,6 +20,7 @@
 
 import React, { useEffect, useState } from "react";
 import { listAssets, addAsset, updateAsset, deleteAsset } from "../assetsApi";
+import { useAuth } from "../../context/AuthContext";
 
 
 // Mock API functions
@@ -72,8 +73,9 @@ function formatOpenDate(dt) {
 }
 
 export default function AssetsBoard() {
+  const { user } = useAuth(); // Get the logged-in user
   const [assets, setAssets] = useState([]);
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(""); // Email state for form
   const [type, setType] = useState("Laptop");
   const [location, setLocation] = useState("WFO");
   const [description, setDescription] = useState(""); // new description state for add form
@@ -90,26 +92,45 @@ export default function AssetsBoard() {
     setTimeout(() => setToast(null), 3500);
   };
 
+  // Auto-populate email field with logged-in user's email
+  useEffect(() => {
+    if (user?.email) {
+      setEmail(user.email);
+    }
+  }, [user?.email]);
+
   useEffect(() => {
     let mounted = true;
+    if (!user?.email) {
+      setAssets([]);
+      return () => (mounted = false);
+    }
+    // Clear immediately on user switch to avoid showing previous user's assets
+    setAssets([]);
     (async () => {
       try {
-        const res = await listAssets();
+        // Fetch assets filtered by logged-in user's email from backend
+        const res = await listAssets(user?.email);
         if (!mounted) return;
         // res should be an array of assets after normalization in API module
-        console.log("Assets: fetched", Array.isArray(res) ? res.length : 0, res);
+        console.log("Assets: fetched for user", user?.email, "count:", Array.isArray(res) ? res.length : 0, res);
+        
         setAssets(Array.isArray(res) ? res : []);
       } catch (err) {
         console.error("Assets: failed to fetch assets", err);
         // keep using mock assets if backend fails to avoid breaking UI
-        if (mounted) setAssets([...mockAssets]);
+        if (mounted) {
+          const userMockAssets = mockAssets.filter(asset => asset.email === user?.email);
+          setAssets(userMockAssets);
+        }
       }
     })();
     return () => (mounted = false);
-  }, []);
+  }, [user?.email]); // Re-run when user email changes
 
   const add = async (status = "active") => {
-    const assetEmail = status === "form" ? email : quickAdd[status]?.email;
+    // Use the email from the form
+    const assetEmail = status === "form" ? email : user?.email;
     const assetType =
       status === "form" ? type : quickAdd[status]?.type || "Laptop";
     const assetLocation =
@@ -119,7 +140,10 @@ export default function AssetsBoard() {
         ? description
         : quickAdd[status]?.description || ""; // include description
 
-    if (!assetEmail?.trim()) return;
+    if (!assetEmail?.trim()) {
+      showToast('Please log in to add assets', 'error');
+      return;
+    }
 
     const a = {
       id: generateId(),
@@ -132,23 +156,24 @@ export default function AssetsBoard() {
     };
     try {
       await addAsset(a);
-      const fresh = await listAssets();
+      const fresh = await listAssets(user?.email);
       setAssets(Array.isArray(fresh) ? fresh : []);
+      showToast('Asset added successfully', 'success');
     } catch (err) {
       console.error('Assets: failed to add asset', err);
+      showToast(`Failed to add asset: ${err.message}`, 'error');
       // Show a user-friendly message and fall back to mock data so UI remains usable
       try {
-        setAssets(await listAssets());
+        const fresh = await listAssets(user?.email);
+        setAssets(Array.isArray(fresh) ? fresh : []);
       } catch (e) {
-        setAssets([...mockAssets]);
+        const userMockAssets = mockAssets.filter(asset => asset.email === user?.email);
+        setAssets(userMockAssets);
       }
-      // keep UI from throwing uncaught errors
-      // optionally show a small alert for now
-      // alert('Failed to add asset: ' + (err.message || err));
     }
 
     if (status === "form") {
-      setEmail("");
+      setEmail(user?.email || ""); // Reset to user's email instead of clearing
       setType("Laptop");
       setLocation("WFO");
       setDescription(""); // reset description input
@@ -230,12 +255,13 @@ export default function AssetsBoard() {
       showToast('Asset deleted', 'success');
     } catch (err) {
       console.error('Failed to delete asset', err);
-      // revert to fresh list from backend or mock
+      // revert to fresh list from backend or mock, filtered for current user
       try {
-        const fresh = await listAssets();
+        const fresh = await listAssets(user?.email);
         setAssets(Array.isArray(fresh) ? fresh : []);
       } catch (e) {
-        setAssets([...mockAssets]);
+        const userMockAssets = mockAssets.filter(asset => asset.email === user?.email);
+        setAssets(userMockAssets);
       }
       showToast('Failed to delete asset', 'error');
     }
@@ -282,6 +308,16 @@ export default function AssetsBoard() {
         >
           FLOW TRACK
         </h1>
+        {user?.email && (
+          <p style={{ 
+            margin: "0.5rem 0 0 0", 
+            fontSize: "1rem", 
+            color: "#666",
+            fontWeight: "500"
+          }}>
+            Assets for: {user.email}
+          </p>
+        )}
       </div>
 
       {/* Add Asset Top Form */}
@@ -297,7 +333,7 @@ export default function AssetsBoard() {
         <h2 style={{ marginBottom: "1rem", fontSize: "1.5rem" }}>Add Asset</h2>
         <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap" }}>
           <input
-            placeholder="Email ID"
+            placeholder="Email ID (auto-filled with your email)"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             style={{
@@ -305,6 +341,7 @@ export default function AssetsBoard() {
               padding: "0.5rem",
               borderRadius: "4px",
               border: "1px solid #ccc",
+              backgroundColor: email === user?.email ? "#f0f8ff" : "#fff", // Light blue if auto-filled
             }}
           />
           <select

@@ -39,17 +39,26 @@ const mapOut = (item) => {
   };
 };
 
-export async function listAssets() {
-  const res = await fetch(`${API_URL}/assets`);
+export async function listAssets(userEmail = null) {
+  const url = userEmail
+    ? `${API_URL}/assets?user_email=${encodeURIComponent(userEmail)}`
+    : `${API_URL}/assets`;
+  const res = await fetch(url);
   if (!res.ok) throw new Error("Failed to fetch assets");
   const data = await res.json();
 
   // Backend may return either an array or an envelope { value: [...] }
-  if (Array.isArray(data)) return data.map(mapOut);
-  if (data && Array.isArray(data.value)) return data.value.map(mapOut);
+  let assets = [];
+  if (Array.isArray(data)) assets = data.map(mapOut);
+  else if (data && Array.isArray(data.value)) assets = data.value.map(mapOut);
   // fallback: try common shapes
-  if (data && Array.isArray(data.items)) return data.items.map(mapOut);
-  return [];
+  else if (data && Array.isArray(data.items)) assets = data.items.map(mapOut);
+
+  // Frontend safety filter by user email if provided
+  if (userEmail) {
+    assets = assets.filter(a => a.email === userEmail);
+  }
+  return assets;
 }
 
 export async function addAsset(asset) {

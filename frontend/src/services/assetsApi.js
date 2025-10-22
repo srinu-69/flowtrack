@@ -8,8 +8,8 @@ const mapStatusOut = (s) => {
 
 const mapStatusIn = (s) => {
   if (!s) return s;
-  const m = { active: "Open", maintenance: "Assigned", inactive: "Closed" };
-  return m[s] ?? s;
+  const m = { active: "active", maintenance: "maintenance", inactive: "inactive" };
+  return m[s] ?? "active"; // Default to "active" if status not recognized
 };
 
 const mapOut = (item) => {
@@ -32,25 +32,36 @@ const mapOut = (item) => {
   };
 };
 
-export async function listAssets() {
-  const res = await fetch(`${API_URL}/assets`);
+export async function listAssets(userEmail = null) {
+  const url = userEmail
+    ? `${API_URL}/assets?user_email=${encodeURIComponent(userEmail)}`
+    : `${API_URL}/assets`;
+  const res = await fetch(url);
   if (!res.ok) throw new Error(`Failed to fetch assets`);
   const data = await res.json();
-  if (Array.isArray(data)) return data.map(mapOut);
-  if (data && Array.isArray(data.value)) return data.value.map(mapOut);
-  if (data && Array.isArray(data.items)) return data.items.map(mapOut);
-  return [];
+  let assets = [];
+  if (Array.isArray(data)) assets = data.map(mapOut);
+  else if (data && Array.isArray(data.value)) assets = data.value.map(mapOut);
+  else if (data && Array.isArray(data.items)) assets = data.items.map(mapOut);
+  
+  // Filter by user email on the frontend if provided
+  if (userEmail) {
+    assets = assets.filter(asset => asset.email === userEmail);
+  }
+  
+  return assets;
 }
 
 export async function addAsset(asset) {
   // Send only the expected frontend fields (backend schemas accept frontend status values)
   const toSend = {
     email: asset.email,
-    type: asset.type,
+    type: asset.type === "Network issue" ? "Network Issue" : asset.type, // Map "Network issue" to "Network Issue"
     location: asset.location,
-    status: asset.status,
+    status: mapStatusIn(asset.status), // Map frontend status to backend status
     description: asset.description,
   };
+  
 
   const res = await fetch(`${API_URL}/assets`, {
     method: "POST",

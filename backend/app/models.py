@@ -61,25 +61,44 @@
 #     # Relationship back to User
 #     user = relationship("User", back_populates="assets")
 from datetime import datetime
-from sqlalchemy import Column, Integer, String, DateTime, Text
+from sqlalchemy import Column, Integer, String, DateTime, Text,TIMESTAMP, func, Date
+from sqlalchemy.ext.declarative import declarative_base
+
 from app.database import Base
 
 class User(Base):
     __tablename__ = "users"
 
-    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
-    full_name = Column(String(255), nullable=False)
-    email = Column(String(255), unique=True, index=True, nullable=False)
-    hashed_password = Column(String(255), nullable=False)
+    id = Column(Integer, primary_key=True, index=True)
+    full_name = Column(String, nullable=False)  # Make sure this exists
+    email = Column(String, unique=True, index=True)
+    hashed_password = Column(String)
 
 class Asset(Base):
     __tablename__ = "assets"
 
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
-    email_id = Column(String(255), nullable=False)
-    asset_type = Column(String(50), nullable=False)
-    location = Column(String(50), nullable=False)
-    description = Column(Text, nullable=True)
+    # Map to existing DB column names while keeping attribute names used by app
+    email = Column('email_id', String(255), nullable=False)
+    type = Column('asset_type', String(50), nullable=False)
+    location = Column(String(10), nullable=False)
     status = Column(String(20), nullable=False)
-    assigned_date = Column(DateTime(timezone=False), nullable=True)
-    return_date = Column(DateTime(timezone=False), nullable=True)
+    description = Column(Text, nullable=True)
+    open_date = Column('assigned_date', DateTime(timezone=False), nullable=True)
+    close_date = Column('return_date', DateTime(timezone=False), nullable=True)
+
+# Use the shared Base imported from app.database for all models
+
+class UserProfile(Base):
+    __tablename__ = "user_profile"
+
+    user_id = Column(Integer, primary_key=True, index=True)
+    full_name = Column(String(150), nullable=False)
+    email = Column(String(255), unique=True, nullable=False)
+    mobile_number = Column(String(20), nullable=True)
+    role = Column(String(50), nullable=False)
+    department = Column(String(50), nullable=False)
+    date_of_birth = Column(Date, nullable=True)
+    user_status = Column(String(20), default="Active", nullable=False)
+    created_at = Column(TIMESTAMP, server_default=func.now())
+    updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())

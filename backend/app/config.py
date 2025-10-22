@@ -16,7 +16,7 @@
 from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
-    database_url: str
+    database_url: str = "sqlite+aiosqlite:///./flowtrack.db"  # Default to SQLite
     backend_host: str = "0.0.0.0"
     backend_port: int = 8000
 
