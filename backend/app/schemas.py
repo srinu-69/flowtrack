@@ -53,6 +53,7 @@
 
 from pydantic import BaseModel, EmailStr, Field, field_validator
 from typing import Optional
+from datetime import date
 from datetime import datetime
 from enum import Enum
 
@@ -176,7 +177,7 @@ class AssetOut(BaseModel):
 class UserCreate(BaseModel):
     email: EmailStr
     password: str
-    full_name: str | None = None
+    full_name: str
 
 class UserLogin(BaseModel):
     email: EmailStr
@@ -185,7 +186,60 @@ class UserLogin(BaseModel):
 class UserOut(BaseModel):
     id: int
     email: EmailStr
-    full_name: str | None
+    full_name: str
+
+    class Config:
+        from_attributes = True
+
+# User Profile Schemas
+class UserProfileCreate(BaseModel):
+    user_id: int
+    full_name: str
+    email: EmailStr
+    mobile_number: Optional[str] = ""
+    role: Optional[str] = "Associate Developer"
+    department: Optional[str] = "Flow Track"
+    date_of_birth: Optional[date] = None
+    user_status: str = "Active"
+
+class UserProfileUpdate(BaseModel):
+    full_name: Optional[str] = None
+    email: Optional[EmailStr] = None
+    mobile_number: Optional[str] = None
+    role: Optional[str] = None
+    department: Optional[str] = None
+    date_of_birth: Optional[date] = None
+    user_status: Optional[str] = None
+
+class UserProfileOut(BaseModel):
+    user_id: int
+    full_name: str
+    email: EmailStr
+    mobile_number: Optional[str]
+    role: Optional[str]
+    department: Optional[str]
+    date_of_birth: Optional[date]
+    user_status: str
+
+    class Config:
+        from_attributes = True
+
+# Admin Schemas
+class AdminCreate(BaseModel):
+    full_name: str
+    email: EmailStr
+    password: str
+
+class AdminLogin(BaseModel):
+    email: EmailStr
+    password: str
+
+class AdminOut(BaseModel):
+    id: int
+    full_name: str
+    email: EmailStr
+    created_at: datetime
+    updated_at: datetime
 
     class Config:
         from_attributes = True

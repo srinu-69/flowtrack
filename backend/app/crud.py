@@ -136,6 +136,15 @@ from datetime import datetime
 from . import models, schemas
 import bcrypt
 
+def get_password_hash(password: str) -> str:
+    """Hash a password using bcrypt"""
+    password_bytes = password.encode('utf-8')
+    if len(password_bytes) > 72:
+        password_bytes = password_bytes[:72]
+    salt = bcrypt.gensalt()
+    hashed = bcrypt.hashpw(password_bytes, salt)
+    return hashed.decode('utf-8')
+
 
 # Helpers to normalize inputs to DB-expected strings
 def _normalize_type(incoming) -> Optional[str]:
@@ -275,3 +284,134 @@ async def get_user_by_email(session: AsyncSession, email: str) -> Optional[model
     q = select(models.User).where(models.User.email == email)
     res = await session.execute(q)
     return res.scalars().first()
+
+# Department mapping from frontend to database
+DEPARTMENT_MAPPING = {
+    "Frontend": "Flow Track",
+    "Backend": "Flow Track", 
+    "Marketing": "Marketing",
+    "AI/ML": "Flow Track",
+    "DevOps": "DevOps",
+    "Testing": "Testing",
+    "FlowTrack": "Flow Track",
+    "NetWork": "Flow Track",
+    "Hr": "HR"
+}
+
+# User Profile CRUD functions
+async def create_user_profile(session: AsyncSession, profile_in: schemas.UserProfileCreate) -> models.UserProfile:
+    # Map frontend department to valid database department
+    mapped_department = DEPARTMENT_MAPPING.get(profile_in.department, "Flow Track")
+    
+    profile = models.UserProfile(
+        user_id=profile_in.user_id,
+        full_name=profile_in.full_name,
+        email=profile_in.email,
+        mobile_number=profile_in.mobile_number,
+        role=profile_in.role,
+        department=mapped_department,
+        date_of_birth=profile_in.date_of_birth,
+        user_status=profile_in.user_status
+    )
+    session.add(profile)
+    await session.commit()
+    await session.refresh(profile)
+    return profile
+
+async def get_user_profiles(session: AsyncSession) -> List[models.UserProfile]:
+    q = select(models.UserProfile)
+    res = await session.execute(q)
+    return res.scalars().all()
+
+async def get_user_profile_by_id(session: AsyncSession, user_id: int) -> Optional[models.UserProfile]:
+    q = select(models.UserProfile).where(models.UserProfile.user_id == user_id)
+    res = await session.execute(q)
+    return res.scalars().first()
+
+async def update_user_profile(session: AsyncSession, user_id: int, profile_in: schemas.UserProfileUpdate) -> Optional[models.UserProfile]:
+    q = select(models.UserProfile).where(models.UserProfile.user_id == user_id)
+    res = await session.execute(q)
+    profile = res.scalars().first()
+    
+    if not profile:
+        return None
+    
+    for field, value in profile_in.dict(exclude_unset=True).items():
+        if field == "department" and value:
+            # Map frontend department to valid database department
+            mapped_department = DEPARTMENT_MAPPING.get(value, "Flow Track")
+            setattr(profile, field, mapped_department)
+        else:
+            setattr(profile, field, value)
+    
+    await session.commit()
+    await session.refresh(profile)
+    return profile
+
+async def delete_user_profile(session: AsyncSession, user_id: int) -> bool:
+    q = select(models.UserProfile).where(models.UserProfile.user_id == user_id)
+    res = await session.execute(q)
+    profile = res.scalars().first()
+    
+    if not profile:
+        return False
+    
+    await session.delete(profile)
+    await session.commit()
+    return True
+
+# Admin CRUD functions
+async def create_admin(session: AsyncSession, admin_in: schemas.AdminCreate) -> models.Admin:
+    hashed_password = get_password_hash(admin_in.password)
+    admin = models.Admin(
+        full_name=admin_in.full_name,
+        email=admin_in.email,
+        hashed_password=hashed_password
+    )
+    session.add(admin)
+    await session.commit()
+    await session.refresh(admin)
+    return admin
+
+async def get_admin_by_email(session: AsyncSession, email: str) -> Optional[models.Admin]:
+    q = select(models.Admin).where(models.Admin.email == email)
+    res = await session.execute(q)
+    return res.scalars().first()
+
+async def get_admin_by_id(session: AsyncSession, admin_id: int) -> Optional[models.Admin]:
+    q = select(models.Admin).where(models.Admin.id == admin_id)
+    res = await session.execute(q)
+    return res.scalars().first()
+
+async def get_all_admins(session: AsyncSession) -> List[models.Admin]:
+    q = select(models.Admin)
+    res = await session.execute(q)
+    return res.scalars().all()
+
+async def update_admin(session: AsyncSession, admin_id: int, admin_in: schemas.AdminCreate) -> Optional[models.Admin]:
+    q = select(models.Admin).where(models.Admin.id == admin_id)
+    res = await session.execute(q)
+    admin = res.scalars().first()
+    
+    if not admin:
+        return None
+    
+    admin.full_name = admin_in.full_name
+    admin.email = admin_in.email
+    admin.hashed_password = get_password_hash(admin_in.password)
+    
+    await session.commit()
+    await session.refresh(admin)
+    return admin
+
+async def delete_admin(session: AsyncSession, admin_id: int) -> bool:
+    q = select(models.Admin).where(models.Admin.id == admin_id)
+    res = await session.execute(q)
+    admin = res.scalars().first()
+    
+    if not admin:
+        return False
+    
+    await session.delete(admin)
+    await session.commit()
+    return True

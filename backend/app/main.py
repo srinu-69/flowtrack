@@ -126,6 +126,62 @@ async def root():
 async def health_check():
     return {"status": "healthy", "service": "Flow Track API"}
 
+@app.get("/user-profiles", response_model=List[schemas.UserProfileOut])
+async def get_user_profiles(session: AsyncSession = Depends(get_session)):
+    try:
+        profiles = await crud.get_user_profiles(session)
+        return profiles
+    except Exception as e:
+        logger.error(f"Error fetching user profiles: {e}")
+        raise HTTPException(status_code=500, detail=f"Error fetching user profiles: {str(e)}")
+
+@app.post("/user-profiles", response_model=schemas.UserProfileOut)
+async def create_user_profile(profile: schemas.UserProfileCreate, session: AsyncSession = Depends(get_session)):
+    try:
+        return await crud.create_user_profile(session, profile)
+    except Exception as e:
+        logger.error(f"Error creating user profile: {e}")
+        raise HTTPException(status_code=500, detail=f"Error creating user profile: {str(e)}")
+
+@app.get("/user-profiles/{user_id}", response_model=schemas.UserProfileOut)
+async def get_user_profile(user_id: int, session: AsyncSession = Depends(get_session)):
+    try:
+        profile = await crud.get_user_profile_by_id(session, user_id)
+        if not profile:
+            raise HTTPException(status_code=404, detail="User profile not found")
+        return profile
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching user profile: {e}")
+        raise HTTPException(status_code=500, detail=f"Error fetching user profile: {str(e)}")
+
+@app.put("/user-profiles/{user_id}", response_model=schemas.UserProfileOut)
+async def update_user_profile(user_id: int, profile: schemas.UserProfileUpdate, session: AsyncSession = Depends(get_session)):
+    try:
+        updated_profile = await crud.update_user_profile(session, user_id, profile)
+        if not updated_profile:
+            raise HTTPException(status_code=404, detail="User profile not found")
+        return updated_profile
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating user profile: {e}")
+        raise HTTPException(status_code=500, detail=f"Error updating user profile: {str(e)}")
+
+@app.delete("/user-profiles/{user_id}")
+async def delete_user_profile(user_id: int, session: AsyncSession = Depends(get_session)):
+    try:
+        success = await crud.delete_user_profile(session, user_id)
+        if not success:
+            raise HTTPException(status_code=404, detail="User profile not found")
+        return {"message": "User profile deleted successfully"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error deleting user profile: {e}")
+        raise HTTPException(status_code=500, detail=f"Error deleting user profile: {str(e)}")
+
 @app.get("/assets", response_model=List[schemas.AssetOut])
 async def read_assets(status: Optional[str] = None, session: AsyncSession = Depends(get_session)):
     try:
@@ -227,3 +283,115 @@ async def login_user(credentials: schemas.UserLogin, session: AsyncSession = Dep
     except Exception as e:
         logger.error(f"Error during login: {e}")
         raise HTTPException(status_code=500, detail=f"Error during login: {str(e)}")
+
+# Admin authentication endpoints
+@app.post("/auth/admin/register", response_model=schemas.AdminOut, status_code=status.HTTP_201_CREATED)
+async def register_admin(admin_in: schemas.AdminCreate, session: AsyncSession = Depends(get_session)):
+    try:
+        logger.info(f"Registering admin: {admin_in.email}")
+        
+        # Check if admin already exists
+        existing_admin = await crud.get_admin_by_email(session, admin_in.email)
+        if existing_admin:
+            raise HTTPException(status_code=400, detail="Admin email already registered")
+        
+        # Create new admin
+        created_admin = await crud.create_admin(session, admin_in)
+        logger.info(f"Admin registered successfully: {created_admin.id}")
+        
+        # Return admin without password
+        return schemas.AdminOut(
+            id=created_admin.id,
+            full_name=created_admin.full_name,
+            email=created_admin.email,
+            created_at=created_admin.created_at,
+            updated_at=created_admin.updated_at
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error registering admin: {e}")
+        raise HTTPException(status_code=500, detail=f"Error registering admin: {str(e)}")
+
+@app.post("/auth/admin/login")
+async def login_admin(credentials: schemas.AdminLogin, session: AsyncSession = Depends(get_session)):
+    try:
+        logger.info(f"Admin login attempt for: {credentials.email}")
+        
+        # Get admin by email
+        admin = await crud.get_admin_by_email(session, credentials.email)
+        if not admin:
+            raise HTTPException(status_code=401, detail="Invalid email or password")
+        
+        # Verify password
+        import bcrypt
+        password_bytes = credentials.password.encode('utf-8')
+        if len(password_bytes) > 72:
+            password_bytes = password_bytes[:72]
+        if not bcrypt.checkpw(password_bytes, admin.hashed_password.encode('utf-8')):
+            raise HTTPException(status_code=401, detail="Invalid email or password")
+        
+        logger.info(f"Admin logged in successfully: {admin.id}")
+        
+        # Return admin without password
+        return schemas.AdminOut(
+            id=admin.id,
+            full_name=admin.full_name,
+            email=admin.email,
+            created_at=admin.created_at,
+            updated_at=admin.updated_at
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error during admin login: {e}")
+        raise HTTPException(status_code=500, detail=f"Error during admin login: {str(e)}")
+
+# Admin management endpoints
+@app.get("/admin", response_model=List[schemas.AdminOut])
+async def get_all_admins(session: AsyncSession = Depends(get_session)):
+    try:
+        admins = await crud.get_all_admins(session)
+        return admins
+    except Exception as e:
+        logger.error(f"Error fetching admins: {e}")
+        raise HTTPException(status_code=500, detail=f"Error fetching admins: {str(e)}")
+
+@app.get("/admin/{admin_id}", response_model=schemas.AdminOut)
+async def get_admin(admin_id: int, session: AsyncSession = Depends(get_session)):
+    try:
+        admin = await crud.get_admin_by_id(session, admin_id)
+        if not admin:
+            raise HTTPException(status_code=404, detail="Admin not found")
+        return admin
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching admin: {e}")
+        raise HTTPException(status_code=500, detail=f"Error fetching admin: {str(e)}")
+
+@app.put("/admin/{admin_id}", response_model=schemas.AdminOut)
+async def update_admin(admin_id: int, admin_in: schemas.AdminCreate, session: AsyncSession = Depends(get_session)):
+    try:
+        updated_admin = await crud.update_admin(session, admin_id, admin_in)
+        if not updated_admin:
+            raise HTTPException(status_code=404, detail="Admin not found")
+        return updated_admin
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating admin: {e}")
+        raise HTTPException(status_code=500, detail=f"Error updating admin: {str(e)}")
+
+@app.delete("/admin/{admin_id}")
+async def delete_admin(admin_id: int, session: AsyncSession = Depends(get_session)):
+    try:
+        success = await crud.delete_admin(session, admin_id)
+        if not success:
+            raise HTTPException(status_code=404, detail="Admin not found")
+        return {"message": "Admin deleted successfully"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error deleting admin: {e}")
+        raise HTTPException(status_code=500, detail=f"Error deleting admin: {str(e)}")
