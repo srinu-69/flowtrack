@@ -1,34 +1,41 @@
 const API_URL = "http://localhost:8000";
 
-// Create or update user profile in users_management table
+/**
+ * Save or update a user profile
+ * @param {Object} profileData - The user profile data to save
+ * @returns {Promise<Object>} The saved/updated profile
+ */
 export async function saveUserProfile(profileData) {
   try {
-    // First check if user already exists
-    const checkResponse = await fetch(
-      `${API_URL}/users-management/email/${encodeURIComponent(profileData.email)}`
-    );
+    // Check if profile exists first
+    const checkResponse = await fetch(`${API_URL}/user-profiles/email/${encodeURIComponent(profileData.email)}`);
     
     if (checkResponse.ok) {
-      // User exists, update them
-      const existingUser = await checkResponse.json();
-      const response = await fetch(
-        `${API_URL}/users-management/${existingUser.id}`,
-        {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(profileData),
-        }
-      );
-      if (!response.ok) throw new Error('Failed to update user profile');
+      // Profile exists, update it
+      const existingProfile = await checkResponse.json();
+      const response = await fetch(`${API_URL}/user-profiles/${existingProfile.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(profileData)
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to update user profile: ${response.statusText}`);
+      }
+      
       return await response.json();
     } else {
-      // User doesn't exist, create new
-      const response = await fetch(`${API_URL}/users-management`, {
+      // Profile doesn't exist, create it
+      const response = await fetch(`${API_URL}/user-profiles`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(profileData),
+        body: JSON.stringify(profileData)
       });
-      if (!response.ok) throw new Error('Failed to create user profile');
+      
+      if (!response.ok) {
+        throw new Error(`Failed to create user profile: ${response.statusText}`);
+      }
+      
       return await response.json();
     }
   } catch (error) {
@@ -37,38 +44,66 @@ export async function saveUserProfile(profileData) {
   }
 }
 
-// Get user profile by email
+/**
+ * Get a user profile by email
+ * @param {string} email - The user's email address
+ * @returns {Promise<Object>} The user profile
+ */
 export async function getUserProfile(email) {
   try {
-    const response = await fetch(
-      `${API_URL}/users-management/email/${encodeURIComponent(email)}`
-    );
+    const response = await fetch(`${API_URL}/user-profiles/email/${encodeURIComponent(email)}`);
+    
     if (!response.ok) {
       if (response.status === 404) {
-        return null; // User not found - this is normal for new users
+        return null; // Profile not found
       }
-      throw new Error('Failed to fetch user profile');
+      throw new Error(`Failed to fetch user profile: ${response.statusText}`);
     }
+    
     return await response.json();
   } catch (error) {
-    // If it's a network error or the fetch itself failed
-    if (error.name === 'TypeError' || error.message.includes('fetch')) {
-      console.log('Network error fetching profile (server may be starting):', error.message);
-      return null; // Return null instead of throwing for network errors
-    }
     console.error('Error fetching user profile:', error);
     throw error;
   }
 }
 
-// Get all users (for admin viewing)
-export async function getAllUsers() {
+/**
+ * Get all user profiles
+ * @returns {Promise<Array>} List of all user profiles
+ */
+export async function getAllUserProfiles() {
   try {
-    const response = await fetch(`${API_URL}/users-management`);
-    if (!response.ok) throw new Error('Failed to fetch users');
+    const response = await fetch(`${API_URL}/user-profiles`);
+    
+    if (!response.ok) {
+      throw new Error(`Failed to fetch user profiles: ${response.statusText}`);
+    }
+    
     return await response.json();
   } catch (error) {
-    console.error('Error fetching all users:', error);
+    console.error('Error fetching user profiles:', error);
+    throw error;
+  }
+}
+
+/**
+ * Delete a user profile
+ * @param {number} profileId - The profile ID to delete
+ * @returns {Promise<void>}
+ */
+export async function deleteUserProfile(profileId) {
+  try {
+    const response = await fetch(`${API_URL}/user-profiles/${profileId}`, {
+      method: 'DELETE'
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Failed to delete user profile: ${response.statusText}`);
+    }
+    
+    return await response.json();
+  } catch (error) {
+    console.error('Error deleting user profile:', error);
     throw error;
   }
 }
