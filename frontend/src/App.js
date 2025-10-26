@@ -1013,7 +1013,7 @@ function LoginRedirectAfterAuth() {
 }
 
 function Layout() {
-  const { user, logout } = useAuth();
+  const { user, logout, refreshUserData } = useAuth();
   const { projects } = useProjects();
   const location = useLocation();
 
@@ -1021,6 +1021,15 @@ function Layout() {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [currentProjectName, setCurrentProjectName] = useState(null);
   const [isMobile, setIsMobile] = useState(false);
+
+  // Refresh user data on mount to get latest changes from admin
+  useEffect(() => {
+    if (user && refreshUserData) {
+      refreshUserData().catch(err => {
+        console.log('Could not refresh user data:', err);
+      });
+    }
+  }, []); // Only run once on mount
 
   // Detect mobile screen size
   useEffect(() => {

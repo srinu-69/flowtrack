@@ -154,12 +154,57 @@ export function AuthProvider({ children }) {
     console.log("AuthContext: Logout complete.");
   };
 
+  // Function to refresh user data from backend
+  const refreshUserData = async () => {
+    if (!user?.email) {
+      console.log("AuthContext: No user to refresh");
+      return;
+    }
+
+    try {
+      console.log(`AuthContext: Refreshing user data for: ${user.email}`);
+      
+      // Try to get updated profile from user_profile table
+      const response = await fetch(`http://localhost:8000/user-profiles/email/${encodeURIComponent(user.email)}`);
+      
+      if (response.ok) {
+        const profileData = await response.json();
+        
+        // Update user data with fresh profile information
+        const updatedUser = {
+          ...user,
+          name: profileData.full_name || user.name,
+          id: profileData.user_id || user.id,
+        };
+        
+        setUser(updatedUser);
+        localStorage.setItem("user", JSON.stringify(updatedUser));
+        console.log("AuthContext: User data refreshed successfully:", updatedUser);
+        return updatedUser;
+      } else if (response.status === 404) {
+        // Profile not found in user_profile table, try users table
+        const usersResponse = await fetch(`http://localhost:8000/auth/login`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: user.email, password: "" })
+        });
+        
+        // If users endpoint doesn't work, just keep current user data
+        console.log("AuthContext: Profile not found, keeping existing data");
+      }
+    } catch (error) {
+      console.error("AuthContext: Error refreshing user data:", error);
+      // Don't throw - just keep existing user data
+    }
+  };
+
   const authContextValue = {
     user,
     loading,
     login,
     register,
     logout,
+    refreshUserData,
   };
 
   return (

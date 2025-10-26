@@ -1438,8 +1438,8 @@
 
 
 import React, { useEffect, useState } from "react";
-import { listUsers, addUser, updateUser, deleteUser } from "../../services/userApi";
-import { v4 as uuidv4 } from "uuid";
+import { saveUserProfile, getUserProfile } from "../../services/userManagementApi";
+import { useAuth } from "../../context/AuthContext";
 import { FiUserPlus } from "react-icons/fi";
 
 
@@ -1449,20 +1449,21 @@ const DEPARTMENTS_KEY = "user-management-departments";
 
 const defaultRoles = [
   "Associate Developer",
-  "Senior Associate Developer",
+  "Senior Develooper",
   "HR",
   "Administration"
 ];
 const defaultDepartments = [
-  "Frontend",
-  "Backend",
-  "Marketing",
+  "Front End",
+  "Back End",
+  "Middle Ware",
   "AI/ML",
+  "Flow Track",
   "DevOps",
+  "Networking",
   "Testing",
-  "FlowTrack",
-  "NetWork",
-  "Hr"
+  "HR",
+  "Marketing"
 ];
 
 
@@ -1628,6 +1629,8 @@ const styles = {
 
 
 export default function Users() {
+  const { user, refreshUserData } = useAuth(); // Get logged-in user and refresh function
+  
   const defaultNewUser = {
     firstName: "",
     email: "",
@@ -1641,30 +1644,61 @@ export default function Users() {
   };
 
 
-  const [users, setUsers] = useState([]);
   const [newUserForm, setNewUserForm] = useState(defaultNewUser);
-  const [editingId, setEditingId] = useState(null);
-  const [editForm, setEditForm] = useState({});
   const [error, setError] = useState(null);
   const [successMessage, setSuccessMessage] = useState(null);
   const [roles, setRoles] = useState(defaultRoles);
   const [departments, setDepartments] = useState(defaultDepartments);
 
 
+  // Load user's existing profile if they're logged in
   useEffect(() => {
-    const fetchUsers = async () => {
-      try {
-        const data = await listUsers();
-        setUsers(data);
-        setError(null);
-      } catch (err) {
-        console.error('Error fetching users:', err);
-        setError(err.message || "Failed to load users");
+    const loadUserProfile = async () => {
+      if (user?.email) {
+        try {
+          // Refresh user data from backend to get latest changes made by admin
+          if (refreshUserData) {
+            await refreshUserData();
+            console.log('User data refreshed from backend');
+          }
+
+          const profile = await getUserProfile(user.email);
+          if (profile) {
+            // Pre-fill form with existing profile data
+            setNewUserForm({
+              firstName: profile.first_name || "",
+              email: profile.email || "",
+              role: profile.role || defaultRoles[0],
+              department: profile.department || defaultDepartments[0],
+              active: profile.active !== undefined ? profile.active : true,
+              mobileNumber: profile.mobile_number || "",
+              dateOfBirth: "",
+              passwordResetNeeded: profile.password_reset_needed || false,
+              profileFile: null,
+            });
+            console.log('Profile loaded successfully:', profile.email);
+          } else {
+            // No profile yet, pre-fill email
+            setNewUserForm(prev => ({
+              ...prev,
+              email: user.email
+            }));
+            console.log('No existing profile, pre-filled email:', user.email);
+          }
+        } catch (err) {
+          // Silently handle error - profile may not exist yet, which is normal
+          console.log('Profile not found for user (this is normal for new users):', user.email);
+          // Pre-fill email even if profile doesn't exist
+          setNewUserForm(prev => ({
+            ...prev,
+            email: user.email
+          }));
+          // Don't show error to user - this is expected for first-time users
+        }
       }
     };
-    fetchUsers();
-  }, []);
-
+    loadUserProfile();
+  }, [user?.email, refreshUserData]);
 
   useEffect(() => {
     setStored(ROLES_KEY, roles);
@@ -1692,22 +1726,30 @@ export default function Users() {
       return;
     }
     try {
-      const newUser = {
-        ...newUserForm,
-        name: newUserForm.firstName.trim(),
-        profileFile: newUserForm.profileFile
-          ? { name: newUserForm.profileFile.name, size: newUserForm.profileFile.size }
-          : null,
+      // Save to users_management table (real database)
+      const profileData = {
+        first_name: newUserForm.firstName.trim(),
+        last_name: "", // Not collected in current form
+        email: newUserForm.email.trim(),
+        role: newUserForm.role,
+        department: newUserForm.department,
+        active: newUserForm.active,
+        language: "English",
+        mobile_number: newUserForm.mobileNumber || null,
+        date_format: "YYYY-MM-DD",
+        password_reset_needed: newUserForm.passwordResetNeeded,
+        profile_file_name: newUserForm.profileFile?.name || null,
+        profile_file_size: newUserForm.profileFile?.size || null,
       };
-      await addUser(newUser);
-      const updatedUsers = await listUsers();
-      setUsers(updatedUsers);
+      
+      await saveUserProfile(profileData);
+      
       setNewUserForm(defaultNewUser);
       setError(null);
-      setSuccessMessage("User added successfully!"); // Show success message
+      setSuccessMessage("Profile saved successfully!"); // Show success message
     } catch (err) {
-      console.error('Error creating user:', err);
-      setError(err.message || "Failed to add user");
+      console.error('Error saving profile:', err);
+      setError(err.message || "Failed to save profile");
       setSuccessMessage(null);
     }
   };

@@ -1,9 +1,14 @@
 import asyncio
+import sys
+from pathlib import Path
 from logging.config import fileConfig
 from sqlalchemy import pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import create_async_engine
 from alembic import context
+
+# Add the parent directory to Python path
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 # Import your models here
 from app.models import Base  # Replace with your models module

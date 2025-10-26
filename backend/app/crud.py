@@ -152,9 +152,9 @@ def _normalize_type(incoming) -> Optional[str]:
     if key in ('charger',):
         return 'Charger'
     if key in ('networkissue', 'network', 'networkissue'):
-        # DB expects 'Network Issue' (with space)
-        return 'Network Issue'
-    # fallback: return original trimmed value
+        # DB expects 'NetworkIssue' (without space, camelCase)
+        return 'NetworkIssue'
+    # fallback: return original trimmed value 
     return val
 
 
@@ -311,3 +311,549 @@ async def delete_user(db: AsyncSession, user_id: int):
     await db.execute(delete(UserProfile).where(UserProfile.user_id == user_id))
     await db.commit()
     return {"message": "User deleted successfully"}
+
+# Admin Registration CRUD Functions
+async def create_admin(session: AsyncSession, admin_in: schemas.AdminCreate) -> models.AdminRegistration:
+    """Create a new admin registration"""
+    # Hash password with bcrypt
+    password_bytes = admin_in.password.encode('utf-8')
+    if len(password_bytes) > 72:
+        password_bytes = password_bytes[:72]
+    salt = bcrypt.gensalt()
+    hashed_password = bcrypt.hashpw(password_bytes, salt).decode('utf-8')
+    
+    admin = models.AdminRegistration(
+        full_name=admin_in.full_name,
+        email=admin_in.email,
+        hashed_password=hashed_password,
+    )
+    session.add(admin)
+    await session.commit()
+    await session.refresh(admin)
+    return admin
+
+async def get_admin_by_email(session: AsyncSession, email: str) -> Optional[models.AdminRegistration]:
+    """Get admin by email"""
+    q = select(models.AdminRegistration).where(models.AdminRegistration.email == email)
+    res = await session.execute(q)
+    return res.scalars().first()
+
+# Ticket CRUD Functions
+async def create_ticket(session: AsyncSession, ticket_in: schemas.TicketCreate) -> models.Ticket:
+    """Create a new ticket"""
+    ticket = models.Ticket(
+        user_id=ticket_in.user_id,
+        title=ticket_in.title,
+        description=ticket_in.description,
+        status=ticket_in.status,
+        priority=ticket_in.priority,
+    )
+    session.add(ticket)
+    await session.commit()
+    await session.refresh(ticket)
+    return ticket
+
+async def get_ticket(session: AsyncSession, ticket_id: int) -> Optional[models.Ticket]:
+    """Get ticket by ID"""
+    q = select(models.Ticket).where(models.Ticket.id == ticket_id)
+    res = await session.execute(q)
+    return res.scalars().first()
+
+async def list_tickets(session: AsyncSession, user_id: Optional[int] = None, status: Optional[str] = None) -> List[models.Ticket]:
+    """List tickets with optional filters"""
+    q = select(models.Ticket)
+    if user_id:
+        q = q.where(models.Ticket.user_id == user_id)
+    if status:
+        q = q.where(models.Ticket.status == status)
+    q = q.order_by(models.Ticket.created_at.desc())
+    res = await session.execute(q)
+    return res.scalars().all()
+
+async def update_ticket(session: AsyncSession, ticket_id: int, ticket_in: schemas.TicketUpdate) -> Optional[models.Ticket]:
+    """Update a ticket"""
+    ticket = await get_ticket(session, ticket_id)
+    if not ticket:
+        return None
+    
+    if ticket_in.title is not None:
+        ticket.title = ticket_in.title
+    if ticket_in.description is not None:
+        ticket.description = ticket_in.description
+    if ticket_in.status is not None:
+        ticket.status = ticket_in.status
+    if ticket_in.priority is not None:
+        ticket.priority = ticket_in.priority
+    
+    await session.commit()
+    await session.refresh(ticket)
+    return ticket
+
+async def delete_ticket(session: AsyncSession, ticket_id: int) -> bool:
+    """Delete a ticket"""
+    ticket = await get_ticket(session, ticket_id)
+    if not ticket:
+        return False
+    await session.delete(ticket)
+    await session.commit()
+    return True
+
+# Project CRUD Functions
+async def create_project(session: AsyncSession, project_in: schemas.ProjectCreate) -> models.Project:
+    """Create a new project"""
+    project = models.Project(
+        name=project_in.name,
+        project_key=project_in.project_key,
+        project_type=project_in.project_type,
+        leads=project_in.leads,
+        description=project_in.description
+    )
+    session.add(project)
+    await session.commit()
+    await session.refresh(project)
+    return project
+
+async def get_project(session: AsyncSession, project_id: int) -> Optional[models.Project]:
+    """Get project by ID"""
+    q = select(models.Project).where(models.Project.id == project_id)
+    res = await session.execute(q)
+    return res.scalars().first()
+
+async def list_projects(session: AsyncSession) -> List[models.Project]:
+    """List all projects"""
+    q = select(models.Project).order_by(models.Project.created_at.desc())
+    res = await session.execute(q)
+    return res.scalars().all()
+
+async def update_project(session: AsyncSession, project_id: int, project_in: schemas.ProjectUpdate) -> Optional[models.Project]:
+    """Update a project"""
+    project = await get_project(session, project_id)
+    if not project:
+        return None
+
+    if project_in.name is not None:
+        project.name = project_in.name
+    if project_in.project_key is not None:
+        project.project_key = project_in.project_key
+    if project_in.project_type is not None:
+        project.project_type = project_in.project_type
+    if project_in.leads is not None:
+        project.leads = project_in.leads
+    if project_in.description is not None:
+        project.description = project_in.description
+
+    await session.commit()
+    await session.refresh(project)
+    return project
+
+async def delete_project(session: AsyncSession, project_id: int) -> bool:
+    """Delete a project"""
+    project = await get_project(session, project_id)
+    if not project:
+        return False
+    await session.delete(project)
+    await session.commit()
+    return True
+
+# Epic CRUD Functions
+async def create_epic(session: AsyncSession, epic_in: schemas.EpicCreate) -> models.Epic:
+    """Create a new epic"""
+    epic = models.Epic(project_id=epic_in.project_id, name=epic_in.name)
+    session.add(epic)
+    await session.commit()
+    await session.refresh(epic)
+    return epic
+
+async def get_epic(session: AsyncSession, epic_id: int) -> Optional[models.Epic]:
+    """Get epic by ID"""
+    q = select(models.Epic).where(models.Epic.id == epic_id)
+    res = await session.execute(q)
+    return res.scalars().first()
+
+async def list_epics(session: AsyncSession, project_id: Optional[int] = None) -> List[models.Epic]:
+    """List all epics, optionally filtered by project"""
+    q = select(models.Epic)
+    if project_id:
+        q = q.where(models.Epic.project_id == project_id)
+    q = q.order_by(models.Epic.created_at.desc())
+    res = await session.execute(q)
+    return res.scalars().all()
+
+async def delete_epic(session: AsyncSession, epic_id: int) -> bool:
+    """Delete an epic"""
+    epic = await get_epic(session, epic_id)
+    if not epic:
+        return False
+    await session.delete(epic)
+    await session.commit()
+    return True
+
+# Admin Asset CRUD Functions
+async def create_admin_asset(session: AsyncSession, admin_asset_in: schemas.AdminAssetCreate) -> models.AdminAsset:
+    """Create a new admin asset"""
+    admin_asset = models.AdminAsset(
+        id=admin_asset_in.id,
+        email=admin_asset_in.email,
+        type=admin_asset_in.type,
+        location=admin_asset_in.location,
+        description=admin_asset_in.description,
+        status=admin_asset_in.status,
+        open_date=admin_asset_in.open_date,
+        close_date=admin_asset_in.close_date,
+        actions=admin_asset_in.actions
+    )
+    session.add(admin_asset)
+    await session.commit()
+    await session.refresh(admin_asset)
+    return admin_asset
+
+async def get_admin_asset(session: AsyncSession, admin_asset_id: int) -> Optional[models.AdminAsset]:
+    """Get admin asset by ID"""
+    q = select(models.AdminAsset).where(models.AdminAsset.admin_asset_id == admin_asset_id)
+    res = await session.execute(q)
+    return res.scalars().first()
+
+async def list_admin_assets(session: AsyncSession) -> List[models.AdminAsset]:
+    """List all admin assets"""
+    q = select(models.AdminAsset).order_by(models.AdminAsset.open_date.desc())
+    res = await session.execute(q)
+    return res.scalars().all()
+
+async def update_admin_asset(session: AsyncSession, admin_asset_id: int, admin_asset_in: schemas.AdminAssetUpdate) -> Optional[models.AdminAsset]:
+    """Update an admin asset"""
+    admin_asset = await get_admin_asset(session, admin_asset_id)
+    if not admin_asset:
+        return None
+
+    if admin_asset_in.email is not None:
+        admin_asset.email = admin_asset_in.email
+    if admin_asset_in.type is not None:
+        admin_asset.type = admin_asset_in.type
+    if admin_asset_in.location is not None:
+        admin_asset.location = admin_asset_in.location
+    if admin_asset_in.description is not None:
+        admin_asset.description = admin_asset_in.description
+    if admin_asset_in.status is not None:
+        admin_asset.status = admin_asset_in.status
+    if admin_asset_in.open_date is not None:
+        admin_asset.open_date = admin_asset_in.open_date
+    if admin_asset_in.close_date is not None:
+        admin_asset.close_date = admin_asset_in.close_date
+    if admin_asset_in.actions is not None:
+        admin_asset.actions = admin_asset_in.actions
+
+    await session.commit()
+    await session.refresh(admin_asset)
+    return admin_asset
+
+async def delete_admin_asset(session: AsyncSession, admin_asset_id: int) -> bool:
+    """Delete an admin asset"""
+    admin_asset = await get_admin_asset(session, admin_asset_id)
+    if not admin_asset:
+        return False
+    await session.delete(admin_asset)
+    await session.commit()
+    return True
+
+# ==================== UsersManagement CRUD ====================
+
+async def create_users_management(session: AsyncSession, user_in: schemas.UsersManagementCreate) -> models.UsersManagement:
+    """Create a new user in users_management table"""
+    user = models.UsersManagement(
+        first_name=user_in.first_name,
+        last_name=user_in.last_name,
+        email=user_in.email,
+        role=user_in.role,
+        department=user_in.department,
+        active=user_in.active,
+        language=user_in.language,
+        mobile_number=user_in.mobile_number,
+        date_format=user_in.date_format,
+        password_reset_needed=user_in.password_reset_needed,
+        profile_file_name=user_in.profile_file_name,
+        profile_file_size=user_in.profile_file_size
+    )
+    session.add(user)
+    await session.commit()
+    await session.refresh(user)
+    return user
+
+async def get_users_management_by_id(session: AsyncSession, user_id: int) -> Optional[models.UsersManagement]:
+    """Get a user from users_management by ID"""
+    result = await session.execute(
+        select(models.UsersManagement).where(models.UsersManagement.id == user_id)
+    )
+    return result.scalar_one_or_none()
+
+async def get_users_management_by_email(session: AsyncSession, email: str) -> Optional[models.UsersManagement]:
+    """Get a user from users_management by email"""
+    result = await session.execute(
+        select(models.UsersManagement).where(models.UsersManagement.email == email)
+    )
+    return result.scalar_one_or_none()
+
+async def list_users_management(session: AsyncSession) -> List[models.UsersManagement]:
+    """List all users from users_management table"""
+    result = await session.execute(select(models.UsersManagement))
+    return list(result.scalars().all())
+
+async def update_users_management(session: AsyncSession, user_id: int, user_in: schemas.UsersManagementUpdate) -> Optional[models.UsersManagement]:
+    """Update a user in users_management table"""
+    user = await get_users_management_by_id(session, user_id)
+    if not user:
+        return None
+    
+    if user_in.first_name is not None:
+        user.first_name = user_in.first_name
+    if user_in.last_name is not None:
+        user.last_name = user_in.last_name
+    if user_in.email is not None:
+        user.email = user_in.email
+    if user_in.role is not None:
+        user.role = user_in.role
+    if user_in.department is not None:
+        user.department = user_in.department
+    if user_in.active is not None:
+        user.active = user_in.active
+    if user_in.language is not None:
+        user.language = user_in.language
+    if user_in.mobile_number is not None:
+        user.mobile_number = user_in.mobile_number
+    if user_in.date_format is not None:
+        user.date_format = user_in.date_format
+    if user_in.password_reset_needed is not None:
+        user.password_reset_needed = user_in.password_reset_needed
+    if user_in.profile_file_name is not None:
+        user.profile_file_name = user_in.profile_file_name
+    if user_in.profile_file_size is not None:
+        user.profile_file_size = user_in.profile_file_size
+    
+    await session.commit()
+    await session.refresh(user)
+    return user
+
+async def delete_users_management(session: AsyncSession, user_id: int) -> bool:
+    """Delete a user from users_management table"""
+    user = await get_users_management_by_id(session, user_id)
+    if not user:
+        return False
+    await session.delete(user)
+    await session.commit()
+    return True
+
+# ==================== UserProfile CRUD ====================
+
+async def create_user_profile(session: AsyncSession, profile_in: schemas.UserProfileCreate) -> models.UserProfile:
+    """Create a new user profile"""
+    profile = models.UserProfile(
+        full_name=profile_in.full_name,
+        email=profile_in.email,
+        mobile_number=profile_in.mobile_number,
+        role=profile_in.role,
+        department=profile_in.department,
+        date_of_birth=profile_in.date_of_birth,
+        user_status=profile_in.user_status
+    )
+    session.add(profile)
+    await session.commit()
+    await session.refresh(profile)
+    return profile
+
+async def get_user_profile_by_id(session: AsyncSession, user_id: int) -> Optional[models.UserProfile]:
+    """Get a user profile by user_id"""
+    result = await session.execute(
+        select(models.UserProfile).where(models.UserProfile.user_id == user_id)
+    )
+    return result.scalar_one_or_none()
+
+async def get_user_profile_by_email(session: AsyncSession, email: str) -> Optional[models.UserProfile]:
+    """Get a user profile by email"""
+    result = await session.execute(
+        select(models.UserProfile).where(models.UserProfile.email == email)
+    )
+    return result.scalar_one_or_none()
+
+async def list_user_profiles(session: AsyncSession) -> List[models.UserProfile]:
+    """List all user profiles"""
+    result = await session.execute(select(models.UserProfile))
+    return list(result.scalars().all())
+
+async def update_user_profile(session: AsyncSession, user_id: int, profile_in: schemas.UserProfileUpdate) -> Optional[models.UserProfile]:
+    """Update a user profile"""
+    profile = await get_user_profile_by_id(session, user_id)
+    if not profile:
+        return None
+    
+    if profile_in.full_name is not None:
+        profile.full_name = profile_in.full_name
+    if profile_in.email is not None:
+        profile.email = profile_in.email
+    if profile_in.mobile_number is not None:
+        profile.mobile_number = profile_in.mobile_number
+    if profile_in.role is not None:
+        profile.role = profile_in.role
+    if profile_in.department is not None:
+        profile.department = profile_in.department
+    if profile_in.date_of_birth is not None:
+        profile.date_of_birth = profile_in.date_of_birth
+    if profile_in.user_status is not None:
+        profile.user_status = profile_in.user_status
+    
+    await session.commit()
+    await session.refresh(profile)
+    return profile
+
+async def delete_user_profile(session: AsyncSession, user_id: int) -> bool:
+    """Delete a user profile"""
+    profile = await get_user_profile_by_id(session, user_id)
+    if not profile:
+        return False
+    await session.delete(profile)
+    await session.commit()
+    return True
+
+# ==================== AdminEpic CRUD ====================
+
+async def create_admin_epic(session: AsyncSession, admin_epic_in: schemas.AdminEpicCreate) -> models.AdminEpic:
+    """Create a new admin epic"""
+    admin_epic = models.AdminEpic(
+        epic_id=admin_epic_in.epic_id,
+        project_id=admin_epic_in.project_id,
+        project_title=admin_epic_in.project_title,
+        user_name=admin_epic_in.user_name,
+        name=admin_epic_in.name
+    )
+    session.add(admin_epic)
+    await session.commit()
+    await session.refresh(admin_epic)
+    return admin_epic
+
+async def get_admin_epic(session: AsyncSession, admin_epic_id: int) -> Optional[models.AdminEpic]:
+    """Get an admin epic by admin_epic_id"""
+    result = await session.execute(
+        select(models.AdminEpic).where(models.AdminEpic.admin_epic_id == admin_epic_id)
+    )
+    return result.scalar_one_or_none()
+
+async def get_admin_epic_by_epic_id(session: AsyncSession, epic_id: int) -> Optional[models.AdminEpic]:
+    """Get an admin epic by original epic_id"""
+    result = await session.execute(
+        select(models.AdminEpic).where(models.AdminEpic.epic_id == epic_id)
+    )
+    return result.scalar_one_or_none()
+
+async def list_admin_epics(session: AsyncSession, project_id: Optional[int] = None) -> List[models.AdminEpic]:
+    """List all admin epics, optionally filtered by project"""
+    query = select(models.AdminEpic)
+    if project_id is not None:
+        query = query.where(models.AdminEpic.project_id == project_id)
+    result = await session.execute(query)
+    return list(result.scalars().all())
+
+async def update_admin_epic(session: AsyncSession, admin_epic_id: int, admin_epic_in: schemas.AdminEpicUpdate) -> Optional[models.AdminEpic]:
+    """Update an admin epic"""
+    admin_epic = await get_admin_epic(session, admin_epic_id)
+    if not admin_epic:
+        return None
+    
+    if admin_epic_in.project_id is not None:
+        admin_epic.project_id = admin_epic_in.project_id
+    if admin_epic_in.project_title is not None:
+        admin_epic.project_title = admin_epic_in.project_title
+    if admin_epic_in.user_name is not None:
+        admin_epic.user_name = admin_epic_in.user_name
+    if admin_epic_in.name is not None:
+        admin_epic.name = admin_epic_in.name
+    
+    await session.commit()
+    await session.refresh(admin_epic)
+    return admin_epic
+
+async def delete_admin_epic(session: AsyncSession, admin_epic_id: int) -> bool:
+    """Delete an admin epic"""
+    admin_epic = await get_admin_epic(session, admin_epic_id)
+    if not admin_epic:
+        return False
+    await session.delete(admin_epic)
+    await session.commit()
+    return True
+
+# ==================== AdminTicket CRUD ====================
+
+async def create_admin_ticket(session: AsyncSession, admin_ticket_in: schemas.AdminTicketCreate) -> models.AdminTicket:
+    """Create a new admin ticket"""
+    admin_ticket = models.AdminTicket(
+        ticket_id=admin_ticket_in.ticket_id,
+        epic_id=admin_ticket_in.epic_id,
+        project_id=admin_ticket_in.project_id,
+        project_title=admin_ticket_in.project_title,
+        user_name=admin_ticket_in.user_name,
+        title=admin_ticket_in.title,
+        description=admin_ticket_in.description,
+        status=admin_ticket_in.status,
+        priority=admin_ticket_in.priority
+    )
+    session.add(admin_ticket)
+    await session.commit()
+    await session.refresh(admin_ticket)
+    return admin_ticket
+
+async def get_admin_ticket(session: AsyncSession, admin_ticket_id: int) -> Optional[models.AdminTicket]:
+    """Get an admin ticket by admin_ticket_id"""
+    result = await session.execute(
+        select(models.AdminTicket).where(models.AdminTicket.admin_ticket_id == admin_ticket_id)
+    )
+    return result.scalar_one_or_none()
+
+async def get_admin_ticket_by_ticket_id(session: AsyncSession, ticket_id: int) -> Optional[models.AdminTicket]:
+    """Get an admin ticket by original ticket_id"""
+    result = await session.execute(
+        select(models.AdminTicket).where(models.AdminTicket.ticket_id == ticket_id)
+    )
+    return result.scalar_one_or_none()
+
+async def list_admin_tickets(session: AsyncSession, project_id: Optional[int] = None, epic_id: Optional[int] = None) -> List[models.AdminTicket]:
+    """List all admin tickets, optionally filtered by project or epic"""
+    query = select(models.AdminTicket)
+    if project_id is not None:
+        query = query.where(models.AdminTicket.project_id == project_id)
+    if epic_id is not None:
+        query = query.where(models.AdminTicket.epic_id == epic_id)
+    result = await session.execute(query)
+    return list(result.scalars().all())
+
+async def update_admin_ticket(session: AsyncSession, admin_ticket_id: int, admin_ticket_in: schemas.AdminTicketUpdate) -> Optional[models.AdminTicket]:
+    """Update an admin ticket"""
+    admin_ticket = await get_admin_ticket(session, admin_ticket_id)
+    if not admin_ticket:
+        return None
+    
+    if admin_ticket_in.epic_id is not None:
+        admin_ticket.epic_id = admin_ticket_in.epic_id
+    if admin_ticket_in.project_id is not None:
+        admin_ticket.project_id = admin_ticket_in.project_id
+    if admin_ticket_in.project_title is not None:
+        admin_ticket.project_title = admin_ticket_in.project_title
+    if admin_ticket_in.user_name is not None:
+        admin_ticket.user_name = admin_ticket_in.user_name
+    if admin_ticket_in.title is not None:
+        admin_ticket.title = admin_ticket_in.title
+    if admin_ticket_in.description is not None:
+        admin_ticket.description = admin_ticket_in.description
+    if admin_ticket_in.status is not None:
+        admin_ticket.status = admin_ticket_in.status
+    if admin_ticket_in.priority is not None:
+        admin_ticket.priority = admin_ticket_in.priority
+    
+    await session.commit()
+    await session.refresh(admin_ticket)
+    return admin_ticket
+
+async def delete_admin_ticket(session: AsyncSession, admin_ticket_id: int) -> bool:
+    """Delete an admin ticket"""
+    admin_ticket = await get_admin_ticket(session, admin_ticket_id)
+    if not admin_ticket:
+        return False
+    await session.delete(admin_ticket)
+    await session.commit()
+    return True

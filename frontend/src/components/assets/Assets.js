@@ -46,7 +46,7 @@ const mockAssets = [
   {
     id: "3",
     email: "user3@example.com",
-    type: "Network issue",
+    type: "NetworkIssue",
     location: "WFO",
     status: "active",
     description: "Reported intermittent connectivity.",
@@ -187,14 +187,11 @@ export default function AssetsBoard() {
 
   const statusColumns = {
     active: { title: "Active", color: "#22C55E", bgColor: "#C8E9DD" },
-    // maintenance: { title: "Maintenance", color: "#F59E0B", bgColor: "#FFF4E6" },
-    // inactive: { title: "Inactive", color: "#6B7280", bgColor: "#F3F4F6" },
   };
 
-  const groupedAssets = Object.keys(statusColumns).reduce((acc, status) => {
-    acc[status] = assets.filter((a) => a.status === status);
-    return acc;
-  }, {});
+  const groupedAssets = {
+    active: assets // Show ALL assets in single column regardless of status
+  };
 
   const handleDragStart = (e, asset) => {
     setDraggedAsset(asset);
@@ -356,7 +353,7 @@ export default function AssetsBoard() {
           >
             <option>Laptop</option>
             <option>Charger</option>
-            <option>Network issue</option>
+            <option>NetworkIssue</option>
           </select>
           <select
             value={location}
@@ -472,7 +469,7 @@ export default function AssetsBoard() {
                     >
                       <option>Laptop</option>
                       <option>Charger</option>
-                      <option>Network issue</option>
+                      <option>NetworkIssue</option>
                     </select>
                     <select
                       value={editFields.location}
@@ -506,7 +503,7 @@ export default function AssetsBoard() {
                       style={{ padding: "0.5rem", borderRadius: "4px", border: "none", resize: "vertical" }}
                       rows={3}
                     />
-                    {/* Open Date/Time field visible in edit mode */}
+                    {/* Open Date/Time and Status field visible in edit mode */}
                     <div
                       style={{
                         fontSize: "0.85rem",
@@ -514,9 +511,24 @@ export default function AssetsBoard() {
                         margin: "0.25rem 0",
                         fontWeight: 400,
                         opacity: 0.95,
+                        display: "flex",
+                        gap: "1rem",
+                        alignItems: "center"
                       }}
                     >
-                      Opened: {formatOpenDate(editFields.openDate)}
+                      <span>Opened: {formatOpenDate(editFields.openDate)}</span>
+                      <span style={{
+                        padding: "2px 8px",
+                        borderRadius: "4px",
+                        fontSize: "0.8rem",
+                        fontWeight: "600",
+                        background: editFields.status === 'active' ? '#22C55E' : 
+                                   editFields.status === 'maintenance' ? '#F59E0B' : '#6B7280',
+                        color: "#fff"
+                      }}>
+                        {editFields.status === 'active' ? 'Active' : 
+                         editFields.status === 'maintenance' ? 'Maintenance' : 'Inactive'}
+                      </span>
                     </div>
                     <div style={{ display: "flex", gap: "0.5rem" }}>
                       <button
@@ -564,7 +576,7 @@ export default function AssetsBoard() {
                     <div style={{ marginTop: "0.25rem", fontSize: "0.85rem", opacity: 0.9 }}>
                       {a.description}
                     </div>
-                    {/* Open Date/Time Display */}
+                    {/* Open Date/Time and Status Display */}
                     <div
                       style={{
                         fontSize: "0.85rem",
@@ -572,9 +584,24 @@ export default function AssetsBoard() {
                         marginTop: "0.25rem",
                         fontWeight: 400,
                         opacity: 0.95,
+                        display: "flex",
+                        gap: "1rem",
+                        alignItems: "center"
                       }}
                     >
-                      Opened: {formatOpenDate(a.openDate)}
+                      <span>Opened: {formatOpenDate(a.openDate)}</span>
+                      <span style={{
+                        padding: "2px 8px",
+                        borderRadius: "4px",
+                        fontSize: "0.8rem",
+                        fontWeight: "600",
+                        background: a.status === 'active' ? '#22C55E' : 
+                                   a.status === 'maintenance' ? '#F59E0B' : '#6B7280',
+                        color: "#fff"
+                      }}>
+                        {a.status === 'active' ? 'Active' : 
+                         a.status === 'maintenance' ? 'Maintenance' : 'Inactive'}
+                      </span>
                     </div>
                   </div>
                 )}

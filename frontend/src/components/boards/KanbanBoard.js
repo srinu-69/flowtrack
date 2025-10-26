@@ -1,2111 +1,491 @@
-// full code ok  .
-
-// import React, { useEffect, useState, useRef } from 'react';
-// import { useParams } from 'react-router-dom';
-// import { FiUpload } from 'react-icons/fi'; // Add this line
-
-// const mockIssues = [
-//   {
-//     id: 'i1',
-//     epic: 'p1',
-//     epicName: 'Frontend',
-//     status: 'todo',
-//     type: 'Task',
-//     title: 'Setup repo',
-//     assignee: 'John Doe',
-//     storyPoints: 3,
-//     labels: [],
-//     dueDate: '2025-09-30',
-//     reporter: 'admin',
-//     priority: 'High',
-//     startDate: '2025-09-15',
-//     description: 'Setup the initial repository structure and configuration',
-//     subtasks: [
-//       { id: 'st1', title: 'Create GitHub repository', completed: true },
-//       { id: 'st2', title: 'Setup CI/CD pipeline', completed: false },
-//       { id: 'st3', title: 'Configure linting and formatting', completed: false }
-//     ],
-//     comments: 'Initial setup required for the project'
-//   },
-//   {
-//     id: 'i3',
-//     epic: 'p2',
-//     epicName: 'Middleware',
-//     status: 'todo',
-//     type: 'Subtask',
-//     title: 'API integration',
-//     assignee: 'Jane Smith',
-//     storyPoints: 2,
-//     labels: [],
-//     dueDate: '',
-//     reporter: 'lead-dev',
-//     priority: 'Low',
-//     startDate: '2025-09-18',
-//     description: 'Integrate with external API services',
-//     subtasks: [
-//       { id: 'st4', title: 'Design API endpoints', completed: true },
-//       { id: 'st5', title: 'Implement authentication', completed: false }
-//     ],
-//     comments: ''
-//   }
-// ];
-
-// const defaultStatuses = ['backlog', 'todo', 'analysis', 'inprogress', 'blocked', 'code review', 'qa', 'milestone', 'done'];
-// const mockEpics = [{ id: 'p1', name: 'Frontend' }, { id: 'p2', name: 'Middleware' }];
-// const mockProjects = [
-//   { id: 'p1', name: 'E-Commerce Platform' },
-//   { id: 'p2', name: 'API Gateway Service' },
-//   { id: 'p3', name: 'Mobile App Development' }
-// ];
-
-// const simulateApiDelay = () => new Promise(resolve => setTimeout(resolve, 200));
-
-// const listIssues = async (projectId) => {
-//   await simulateApiDelay();
-//   return mockIssues.filter(i => !projectId || i.epic === projectId || i.projectId === projectId);
-// };
-// const listEpics = async () => { await simulateApiDelay(); return mockEpics; };
-// const getProjectName = async (projectId) => {
-//   await simulateApiDelay();
-//   const project = mockProjects.find(p => p.id === projectId);
-//   return project ? project.name : 'Untitled Project';
-// };
-// const createEpicAPI = async (epicName) => {
-//   await simulateApiDelay();
-//   const newEpic = { id: 'p' + (mockEpics.length + 1), name: epicName };
-//   mockEpics.push(newEpic);
-//   return newEpic;
-// };
-// const deleteEpicAPI = async (epicId) => {
-//   await simulateApiDelay();
-//   const epicIndex = mockEpics.findIndex(epic => epic.id === epicId);
-//   if (epicIndex > -1) mockEpics.splice(epicIndex, 1);
-//   const issueIndices = [];
-//   mockIssues.forEach((issue, index) => { if (issue.epic === epicId) issueIndices.push(index); });
-//   issueIndices.sort((a, b) => b - a).forEach(index => { mockIssues.splice(index, 1); });
-// };
-// const moveIssue = async (issueId, status) => {
-//   await simulateApiDelay();
-//   const issue = mockIssues.find(i => i.id === issueId);
-//   if (!issue) throw new Error('Issue not found');
-//   issue.status = status;
-// };
-// const createIssueAPI = async (issue) => { await simulateApiDelay(); mockIssues.push(issue); };
-// const deleteIssueAPI = async (issueId) => { await simulateApiDelay(); const idx = mockIssues.findIndex(i => i.id === issueId); if (idx > -1) mockIssues.splice(idx, 1); };
-// const updateIssueAPI = async (updatedIssue) => {
-//   await simulateApiDelay();
-//   const idx = mockIssues.findIndex(i => i.id === updatedIssue.id);
-//   if (idx > -1) mockIssues[idx] = { ...mockIssues[idx], ...updatedIssue };
-// };
-
-// const getSwimlanes = (issues, epics) =>
-//   epics.map(epic => {
-//     const epicIssues = issues.filter(i => (i.epic || i.projectId) === epic.id);
-//     return { id: epic.id, title: epic.name, issues: epicIssues };
-//   });
-
-// export default function KanbanBoard() {
-//   const { projectId } = useParams();
-//   const [issues, setIssues] = useState([]);
-//   const [epics, setEpics] = useState([]);
-//   const [projectName, setProjectName] = useState('');
-//   const [openSwimlanes, setOpenSwimlanes] = useState({});
-//   const [customTitles, setCustomTitles] = useState({});
-//   const [createLaneId, setCreateLaneId] = useState(null);
-//   const [newTaskText, setNewTaskText] = useState('');
-//   const [newTaskType, setNewTaskType] = useState('Task');
-//   const [selectedIssue, setSelectedIssue] = useState(null);
-//   const [editIssue, setEditIssue] = useState(null);
-//   const [showCreateEpic, setShowCreateEpic] = useState(false);
-//   const [showDeleteEpic, setShowDeleteEpic] = useState(false);
-//   const [newEpicName, setNewEpicName] = useState('');
-//   const [epicToDelete, setEpicToDelete] = useState('');
-//   const [columnsByLane, setColumnsByLane] = useState({});
-//   const [columnModal, setColumnModal] = useState(null);
-//   const [columnInput, setColumnInput] = useState('');
-//   const [hoveredAssigneeId, setHoveredAssigneeId] = useState(null);
-//   const [modalPosition, setModalPosition] = useState({ top: 0, left: 0 });
-//   const [isMobile, setIsMobile] = useState(false);
-//   const [activeSwimlane, setActiveSwimlane] = useState(null);
-
-//   // State to store selected profile file
-//   const [profileFile, setProfileFile] = useState(null);
-
-//   // Handler for file input changes
-//   const handleNewUserChange = (event) => {
-//     const file = event.target.files[0];
-//     setProfileFile(file);
-//   };
-
-//   // Draggable modal state
-//   const [modalDrag, setModalDrag] = useState({
-//     isDragging: false,
-//     position: { x: 0, y: 0 },
-//     startPosition: { x: 0, y: 0 }
-//   });
-//   const modalRef = useRef(null);
-
-//   // Subtask management
-//   const [newSubtaskText, setNewSubtaskText] = useState('');
-
-//   useEffect(() => {
-//     const checkScreenSize = () => {
-//       setIsMobile(window.innerWidth < 768);
-//     };
-//     checkScreenSize();
-//     window.addEventListener('resize', checkScreenSize);
-//     return () => window.removeEventListener('resize', checkScreenSize);
-//   }, []);
-
-//   useEffect(() => {
-//     const fetchData = async () => {
-//       try {
-//         const projectNameData = projectId ? await getProjectName(projectId) : 'All Projects';
-//         const [issuesData, epicsData] = await Promise.all([
-//           listIssues(projectId),
-//           listEpics()
-//         ]);
-//         setIssues(issuesData);
-//         setEpics(epicsData);
-//         setProjectName(projectNameData);
-//         const lanes = getSwimlanes(issuesData, epicsData);
-//         const initialOpen = {}, initialTitles = {}, initialCols = {};
-//         lanes.forEach(lane => {
-//           initialOpen[lane.id] = true;
-//           initialTitles[lane.id] = lane.title;
-//           initialCols[lane.id] = defaultStatuses.slice();
-//         });
-//         setOpenSwimlanes(initialOpen);
-//         setCustomTitles(initialTitles);
-//         setColumnsByLane(initialCols);
-//       } catch (err) {
-//         console.error(err);
-//       }
-//     };
-//     fetchData();
-//   }, [projectId]);
-
-//   // Subtask functions
-//   const addSubtask = () => {
-//     if (!newSubtaskText.trim()) return;
-
-//     const newSubtask = {
-//       id: `st${Date.now()}`,
-//       title: newSubtaskText.trim(),
-//       completed: false
-//     };
-
-//     setEditIssue(prev => ({
-//       ...prev,
-//       subtasks: [...(prev.subtasks || []), newSubtask]
-//     }));
-
-//     setNewSubtaskText('');
-//   };
-
-//   const toggleSubtask = (subtaskId) => {
-//     setEditIssue(prev => ({
-//       ...prev,
-//       subtasks: prev.subtasks.map(subtask =>
-//         subtask.id === subtaskId
-//           ? { ...subtask, completed: !subtask.completed }
-//           : subtask
-//       )
-//     }));
-//   };
-
-//   const deleteSubtask = (subtaskId) => {
-//     setEditIssue(prev => ({
-//       ...prev,
-//       subtasks: prev.subtasks.filter(subtask => subtask.id !== subtaskId)
-//     }));
-//   };
-
-//   const handleSubtaskKeyPress = (e) => {
-//     if (e.key === 'Enter') {
-//       e.preventDefault();
-//       addSubtask();
-//     }
-//   };
-
-//   // Draggable modal functions
-//   const handleModalMouseDown = (e) => {
-//     if (isMobile) return; // Disable dragging on mobile
-
-//     // Only start dragging if clicking on the header (not on buttons or inputs)
-//     if (e.target.closest('.modal-close-btn') ||
-//       e.target.closest('input') ||
-//       e.target.closest('select') ||
-//       e.target.closest('textarea') ||
-//       e.target.closest('button') ||
-//       e.target.closest('.subtask-item')) {
-//       return;
-//     }
-
-//     setModalDrag({
-//       isDragging: true,
-//       position: modalDrag.position,
-//       startPosition: {
-//         x: e.clientX - modalDrag.position.x,
-//         y: e.clientY - modalDrag.position.y
-//       }
-//     });
-//   };
-
-//   const handleModalMouseMove = (e) => {
-//     if (!modalDrag.isDragging || isMobile) return;
-
-//     const newX = e.clientX - modalDrag.startPosition.x;
-//     const newY = e.clientY - modalDrag.startPosition.y;
-
-//     setModalDrag(prev => ({
-//       ...prev,
-//       position: { x: newX, y: newY }
-//     }));
-//   };
-
-//   const handleModalMouseUp = () => {
-//     if (isMobile) return;
-//     setModalDrag(prev => ({ ...prev, isDragging: false }));
-//   };
-
-//   // Reset modal position when closed
-//   useEffect(() => {
-//     if (!selectedIssue) {
-//       setModalDrag({
-//         isDragging: false,
-//         position: { x: 0, y: 0 },
-//         startPosition: { x: 0, y: 0 }
-//       });
-//     }
-//   }, [selectedIssue]);
-
-//   // Add event listeners for dragging
-//   useEffect(() => {
-//     if (modalDrag.isDragging) {
-//       document.addEventListener('mousemove', handleModalMouseMove);
-//       document.addEventListener('mouseup', handleModalMouseUp);
-//       document.body.style.cursor = 'grabbing';
-//       document.body.style.userSelect = 'none';
-//     } else {
-//       document.removeEventListener('mousemove', handleModalMouseMove);
-//       document.removeEventListener('mouseup', handleModalMouseUp);
-//       document.body.style.cursor = '';
-//       document.body.style.userSelect = '';
-//     }
-
-//     return () => {
-//       document.removeEventListener('mousemove', handleModalMouseMove);
-//       document.removeEventListener('mouseup', handleModalMouseUp);
-//       document.body.style.cursor = '';
-//       document.body.style.userSelect = '';
-//     };
-//   }, [modalDrag.isDragging]);
-
-//   const openAddColumnModal = (e, laneId, colIndex) => {
-//     const rect = e.currentTarget.getBoundingClientRect();
-//     setModalPosition({ top: rect.bottom + window.scrollY + 8, left: rect.left + window.scrollX });
-//     setColumnModal({ laneId, colIndex, type: 'add' });
-//     setColumnInput('');
-//   };
-//   const openEditColumnModal = (e, laneId, colIndex, status) => {
-//     const rect = e.currentTarget.getBoundingClientRect();
-//     setModalPosition({ top: rect.bottom + window.scrollY + 8, left: rect.left + window.scrollX });
-//     setColumnModal({ laneId, colIndex, type: 'menu' });
-//     setColumnInput(status);
-//   };
-//   const handleAddColumn = () => {
-//     const name = columnInput.trim();
-//     if (!name) return alert('Column name is required');
-//     setColumnsByLane(prev => {
-//       const cols = [...prev[columnModal.laneId]];
-//       if (cols.includes(name.toLowerCase())) alert('Column name already exists');
-//       else cols.splice(columnModal.colIndex + 1, 0, name.toLowerCase());
-//       return { ...prev, [columnModal.laneId]: cols };
-//     });
-//     setColumnModal(null);
-//     setColumnInput('');
-//   };
-//   const handleEditColumn = () => {
-//     const name = columnInput.trim();
-//     if (!name) return alert('Column name is required');
-//     const { laneId, colIndex } = columnModal;
-//     const oldCol = columnsByLane[laneId][colIndex];
-//     if (columnsByLane[laneId].includes(name.toLowerCase()) && name.toLowerCase() !== oldCol) {
-//       alert('Column name already exists');
-//       return;
-//     }
-//     setColumnsByLane(prev => {
-//       const cols = [...prev[laneId]];
-//       cols[colIndex] = name.toLowerCase();
-//       return { ...prev, [laneId]: cols };
-//     });
-//     const updatedIssues = issues.map(issue =>
-//       (issue.epic || issue.projectId) === laneId && issue.status === oldCol ? { ...issue, status: name.toLowerCase() } : issue
-//     );
-//     setIssues(updatedIssues);
-//     setColumnModal(null);
-//     setColumnInput('');
-//   };
-//   const handleDeleteColumn = () => {
-//     const { laneId, colIndex } = columnModal;
-//     const removedCol = columnsByLane[laneId][colIndex];
-//     setColumnsByLane(prev => {
-//       const cols = [...prev[laneId]];
-//       cols.splice(colIndex, 1);
-//       return { ...prev, [laneId]: cols };
-//     });
-//     const updatedIssues = issues.map(issue =>
-//       (issue.epic || issue.projectId) === laneId && issue.status === removedCol ? { ...issue, status: 'backlog' } : issue
-//     );
-//     setIssues(updatedIssues);
-//     setColumnModal(null);
-//     setColumnInput('');
-//   };
-//   const toggleSwimlane = (id) => setOpenSwimlanes(prev => ({ ...prev, [id]: !prev[id] }));
-//   const byStatus = (collection, status) => collection.filter(i => i.status === status);
-
-//   const onDragStart = (e, issueId) => e.dataTransfer.setData('text/plain', issueId);
-//   const onDrop = async (e, targetStatus, swimlaneId) => {
-//     e.preventDefault();
-//     try {
-//       const issueId = e.dataTransfer.getData('text/plain');
-//       const issue = issues.find(i => i.id === issueId);
-//       const srcLaneId = issue.epic || issue.projectId;
-//       if (srcLaneId === swimlaneId && issue.status !== targetStatus) {
-//         await moveIssue(issueId, targetStatus);
-//         const refreshed = await listIssues(projectId);
-//         setIssues(refreshed);
-//       }
-//     } catch (err) { console.error(err); }
-//   };
-//   const onDragOver = e => e.preventDefault();
-
-//   const handleCreateClick = laneId => { setCreateLaneId(laneId); setNewTaskText(''); setNewTaskType('Task'); };
-//   const handleCreateSubmit = async lane => {
-//     if (!newTaskText.trim()) { alert('Task title is required'); return; }
-//     const newIssue = {
-//       id: Math.random().toString(36).slice(2),
-//       epic: lane.id,
-//       projectId: lane.id,
-//       epicName: lane.title,
-//       title: newTaskText,
-//       status: 'backlog',
-//       assignee: '',
-//       type: newTaskType,
-//       storyPoints: '',
-//       labels: [],
-//       dueDate: '',
-//       reporter: 'system',
-//       priority: 'Medium',
-//       startDate: new Date().toISOString().split('T')[0],
-//       description: '',
-//       subtasks: [],
-//       comments: ''
-//     };
-//     try {
-//       await createIssueAPI(newIssue);
-//       const refreshed = await listIssues(projectId);
-//       setIssues(refreshed);
-//       setCreateLaneId(null);
-//     } catch (err) { console.error(err); }
-//   };
-
-//   const handleOpenModal = (issue) => {
-//     setSelectedIssue(issue);
-//     setEditIssue({ ...issue });
-//     setNewSubtaskText('');
-//     // Reset position when opening new modal
-//     setModalDrag({
-//       isDragging: false,
-//       position: { x: 0, y: 0 },
-//       startPosition: { x: 0, y: 0 }
-//     });
-//   };
-//   const handleUpdateField = (field, value) => { setEditIssue(prev => ({ ...prev, [field]: value })); };
-//   const handleSave = async () => {
-//     await updateIssueAPI(editIssue);
-//     const refreshed = await listIssues(projectId);
-//     setIssues(refreshed);
-//     setSelectedIssue(null);
-//     setEditIssue(null);
-//   };
-//   const handleReset = () => { setEditIssue({ ...selectedIssue }); };
-
-//   const handleCreateEpic = async () => {
-//     if (!newEpicName.trim()) {
-//       alert('Epic name is required');
-//       return;
-//     }
-//     try {
-//       await createEpicAPI(newEpicName);
-//       const updatedEpics = await listEpics();
-//       setEpics(updatedEpics);
-//       setNewEpicName('');
-//       setShowCreateEpic(false);
-//       const newEpic = updatedEpics[updatedEpics.length - 1];
-//       setOpenSwimlanes(prev => ({ ...prev, [newEpic.id]: true }));
-//       setCustomTitles(prev => ({ ...prev, [newEpic.id]: newEpic.name }));
-//       setColumnsByLane(prev => ({ ...prev, [newEpic.id]: defaultStatuses.slice() }));
-//     } catch (error) {
-//       console.error('Error creating epic:', error);
-//     }
-//   };
-
-//   const handleDeleteEpic = async () => {
-//     if (!epicToDelete) {
-//       alert('Please select an epic to delete');
-//       return;
-//     }
-//     if (!window.confirm(`Are you sure you want to delete the epic "${epics.find(e => e.id === epicToDelete)?.name}"? This will also delete all issues in this epic.`)) {
-//       return;
-//     }
-//     try {
-//       await deleteEpicAPI(epicToDelete);
-//       const [refreshedIssues, refreshedEpics] = await Promise.all([
-//         listIssues(projectId),
-//         listEpics()
-//       ]);
-//       setIssues(refreshedIssues);
-//       setEpics(refreshedEpics);
-//       setEpicToDelete('');
-//       setShowDeleteEpic(false);
-//       setColumnsByLane(prev => {
-//         const copy = { ...prev };
-//         delete copy[epicToDelete];
-//         return copy;
-//       });
-//       setOpenSwimlanes(prev => {
-//         const copy = { ...prev };
-//         delete copy[epicToDelete];
-//         return copy;
-//       });
-//       setCustomTitles(prev => {
-//         const copy = { ...prev };
-//         delete copy[epicToDelete];
-//         return copy;
-//       });
-//     } catch (error) {
-//       console.error('Error deleting epic:', error);
-//     }
-//   };
-
-//   const toggleMobileSwimlane = (laneId) => {
-//     if (activeSwimlane === laneId) {
-//       setActiveSwimlane(null);
-//     } else {
-//       setActiveSwimlane(laneId);
-//     }
-//   };
-
-//   const swimlanes = getSwimlanes(issues, epics);
-
-//   // Calculate subtask progress
-//   const getSubtaskProgress = (subtasks) => {
-//     if (!subtasks || subtasks.length === 0) return { completed: 0, total: 0, percentage: 0 };
-//     const completed = subtasks.filter(st => st.completed).length;
-//     const total = subtasks.length;
-//     const percentage = total > 0 ? Math.round((completed / total) * 100) : 0;
-//     return { completed, total, percentage };
-//   };
-
-//   return (
-//     <div
-//       className="board-wrap"
-//       style={{
-//         margin: 0,
-//         padding: 0,
-//         maxWidth: '100vw',
-//         minHeight: '100vh',
-//         background: '#19a0f7', // makes Kanban flush with browser edge
-//         overflowX: 'auto'
-//       }}
-//     >
-//       {/* Project Name Header */}
-//       <div
-//         className="project-header"
-//         style={{
-//           background: '#dbeafe',
-//           borderRadius: 8,
-//           padding: '20px 0px', // zero left/right
-//           margin: 0,
-//           marginBottom: 20,
-//         }}
-//       >
-//         <h1 className="project-title">{projectName}</h1>
-//         <div className="project-stats">
-//           <span className="project-stat">{epics.length} Epics</span>
-//           <span className="project-stat">{issues.length} Issues</span>
-//           <span className="project-stat">
-//             {issues.filter(issue => issue.status === 'done').length} Completed
-//           </span>
-//         </div>
-//       </div>
-
-//       {isMobile && (
-//         <div className="mobile-swimlane-selector">
-//           <select
-//             value={activeSwimlane || ''}
-//             onChange={(e) => setActiveSwimlane(e.target.value || null)}
-//             className="mobile-select"
-//           >
-//             <option value="">All Swimlanes</option>
-//             {swimlanes.map(lane => (
-//               <option key={lane.id} value={lane.id}>{customTitles[lane.id] || lane.title}</option>
-//             ))}
-//           </select>
-//         </div>
-//       )}
-
-//       {swimlanes.map(lane => {
-//         const isOpen = isMobile ? (activeSwimlane === null || activeSwimlane === lane.id) : openSwimlanes[lane.id];
-//         const statuses = columnsByLane[lane.id] || defaultStatuses;
-
-//         if (isMobile && activeSwimlane && activeSwimlane !== lane.id) {
-//           return null;
-//         }
-
-//         return (
-//           <section className="swimlane" key={lane.id}>
-//             <header className="swimlane-header">
-//               {!isMobile && (
-//                 <button className="swimlane-toggle" onClick={() => toggleSwimlane(lane.id)}>
-//                   {isOpen ? '▼' : '▶'}
-//                 </button>
-//               )}
-//               <span className="swimlane-icon">⚡</span>
-//               <input
-//                 className="swimlane-title-input"
-//                 value={customTitles[lane.id] || ''}
-//                 onChange={e => setCustomTitles(prev => ({ ...prev, [lane.id]: e.target.value }))}
-//               />
-//               <span className="swimlane-count">{lane.issues.length} work items</span>
-//               {isMobile && (
-//                 <button
-//                   className="mobile-swimlane-toggle"
-//                   onClick={() => toggleMobileSwimlane(lane.id)}
-//                 >
-//                   {activeSwimlane === lane.id ? '▲' : '▼'}
-//                 </button>
-//               )}
-//             </header>
-//             {isOpen && (
-//               <div className={`kanban-row ${isMobile ? 'mobile-view' : ''}`}>
-//                 {statuses.map((status, idx) => {
-//                   const issuesForStatus = byStatus(lane.issues, status);
-//                   return (
-//                     <div
-//                       className={`kanban-column ${isMobile ? 'mobile-column' : ''}`}
-//                       key={status}
-//                       onDragOver={onDragOver}
-//                       onDrop={e => onDrop(e, status, lane.id)}
-//                     >
-//                       <div className="col-header">
-//                         <span className="col-title">{status.toUpperCase()}</span>
-//                         {!isMobile && (
-//                           <span className="col-icons">
-//                             <button className="col-icon" title="Add Column" onClick={e => openAddColumnModal(e, lane.id, idx)}>＋</button>
-//                             <button className="col-icon" title="Edit/Delete Column" onClick={e => openEditColumnModal(e, lane.id, idx, status)}>⋮</button>
-//                           </span>
-//                         )}
-//                         {issuesForStatus.length > 0 && <span className="col-count">{issuesForStatus.length}</span>}
-//                       </div>
-//                       <div className="col-create">
-//                         {status === 'backlog' && (
-//                           createLaneId === lane.id ? (
-//                             <div className="create-card">
-//                               <textarea rows={2} className="create-input" placeholder="What needs to be done?" value={newTaskText} onChange={e => setNewTaskText(e.target.value)} />
-//                               <div className="create-actions">
-//                                 <select value={newTaskType} onChange={e => setNewTaskType(e.target.value)} className="create-select">
-//                                   <option>Task</option><option>Subtask</option><option>Bug</option>
-//                                 </select>
-//                                 <button className="create-btn" onClick={() => handleCreateSubmit(lane)}>✔</button>
-//                                 <button className="create-btn" onClick={() => setCreateLaneId(null)}>✖</button>
-//                               </div>
-//                             </div>
-//                           ) : (<span className="create-link" onClick={() => handleCreateClick(lane.id)}>+ Create</span>)
-//                         )}
-//                       </div>
-//                       {issuesForStatus.map(issue => {
-//                         const isHovered = hoveredAssigneeId === issue.id;
-//                         return (
-//                           <div className="card-item" key={issue.id} draggable onDragStart={e => onDragStart(e, issue.id)} onClick={() => handleOpenModal(issue)}>
-//                             <div className="card-top">
-//                               <span className={`card-tag card-tag-${issue.type.toLowerCase()}`}>{issue.type}</span>
-//                               <span className="card-id">{issue.id}</span>
-//                             </div>
-//                             <div className="card-title">{issue.title}</div>
-//                             <div className="card-meta">
-//                               {issue.assignee && (
-//                                 <span className="card-assignee" onMouseEnter={() => setHoveredAssigneeId(issue.id)} onMouseLeave={() => setHoveredAssigneeId(null)}>
-//                                   👤 {issue.assignee}
-//                                 </span>
-//                               )}
-//                               {issue.dueDate && <span className="card-due">📅 {issue.dueDate}</span>}
-//                               <span className={`card-priority ${issue.priority.toLowerCase()}`}>⚑ {issue.priority}</span>
-//                             </div>
-//                           </div>
-//                         );
-//                       })}
-//                     </div>
-//                   );
-//                 })}
-//               </div>
-//             )}
-//           </section>
-//         );
-//       })}
-//       {/* Column Add/Edit modal */}
-//       {columnModal && (columnModal.type === 'add' || columnModal.type === 'menu') && (
-//         <div className="epic-modal-overlay" onClick={() => setColumnModal(null)} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 1000 }}>
-//           <div className="epic-modal" onClick={e => e.stopPropagation()} style={{
-//             position: isMobile ? 'fixed' : 'absolute',
-//             top: isMobile ? '50%' : modalPosition.top,
-//             left: isMobile ? '50%' : modalPosition.left,
-//             transform: isMobile ? 'translate(-50%, -50%)' : 'translateX(-50%)',
-//             minWidth: isMobile ? '90vw' : 280,
-//             maxWidth: isMobile ? '95vw' : 320,
-//             padding: 20,
-//             borderRadius: 10,
-//             background: 'white',
-//             boxShadow: '0 10px 40px rgba(0,0,0,0.3)',
-//             zIndex: 1100
-//           }}>
-//             {columnModal.type === 'add' ? (
-//               <>
-//                 <h3 style={{ marginBottom: 15, fontWeight: 600, fontSize: 20, color: '#172b4d' }}>Add Column</h3>
-//                 <input value={columnInput} onChange={e => setColumnInput(e.target.value)} placeholder="Column name" autoFocus className="epic-modal-input" style={{ width: '100%', padding: 12, fontSize: 16, borderRadius: 6, border: '1px solid #dfe1e5', marginBottom: 20, boxSizing: 'border-box' }} />
-//                 <div className="epic-modal-actions" style={{ display: 'flex', justifyContent: 'flex-end', gap: 12, flexWrap: isMobile ? 'wrap' : 'nowrap' }}>
-//                   <button className="btn-cancel" onClick={() => setColumnModal(null)} style={btnStyle.cancel}>Cancel</button>
-//                   <button className="btn-create" onClick={handleAddColumn} style={btnStyle.create}>Add</button>
-//                 </div>
-//               </>
-//             ) : (
-//               <>
-//                 <h3 style={{ marginBottom: 15, fontWeight: 600, fontSize: 20, color: '#172b4d' }}>Edit/Delete Column</h3>
-//                 <input value={columnInput} onChange={e => setColumnInput(e.target.value)} placeholder="Column name" autoFocus className="epic-modal-input" style={{ width: '100%', padding: 12, fontSize: 16, borderRadius: 6, border: '1px solid #dfe1e5', marginBottom: 20, boxSizing: 'border-box' }} />
-//                 <div className="epic-modal-actions" style={{ display: 'flex', justifyContent: 'flex-end', gap: 12, flexWrap: isMobile ? 'wrap' : 'nowrap' }}>
-//                   <button className="btn-save" onClick={handleEditColumn} style={btnStyle.create}>Rename</button>
-//                   <button className="btn-delete" onClick={handleDeleteColumn} style={btnStyle.delete}>Delete</button>
-//                   <button className="btn-cancel" onClick={() => setColumnModal(null)} style={btnStyle.cancel}>Cancel</button>
-//                 </div>
-//               </>
-//             )}
-//           </div>
-//         </div>
-//       )}
-//       {/* Issue modal - Centered in the middle of the page */}
-//       {selectedIssue && editIssue && (
-//         <div className="modal-overlay" onClick={() => setSelectedIssue(null)}>
-//           <div
-//             className={`modal-container ${isMobile ? 'mobile-modal-container' : ''}`}
-//             ref={modalRef}
-//           >
-//             <div
-//               className={`modal ${isMobile ? 'mobile-modal' : ''} ${modalDrag.isDragging ? 'modal-dragging' : ''}`}
-//               onClick={e => e.stopPropagation()}
-//               onMouseDown={handleModalMouseDown}
-//               style={
-//                 !isMobile && modalDrag.position.x !== 0 && modalDrag.position.y !== 0
-//                   ? {
-//                     position: 'fixed',
-//                     top: modalDrag.position.y,
-//                     left: modalDrag.position.x,
-//                     transform: 'none'
-//                   }
-//                   : {}
-//               }
-//             >
-//               <div className="modal-header">
-//                 <div className="modal-header-content">
-//                   <span className="modal-epic-badge">{editIssue.epicName}</span>
-//                   <h2 className="modal-title">{editIssue.title || 'Untitled Issue'}</h2>
-//                   <div className="modal-id-type">
-//                     <span className="modal-id">{editIssue.id}</span>
-//                     <span className={`modal-type modal-type-${editIssue.type.toLowerCase()}`}>{editIssue.type}</span>
-//                   </div>
-//                 </div>
-//                 <button className="modal-close-btn" onClick={() => setSelectedIssue(null)}>✖</button>
-//               </div>
-
-//               <div className="modal-content-scroll">
-//                 <div className={`modal-content ${isMobile ? 'mobile-modal-content' : ''}`}>
-//                   <div className="modal-section">
-//                     <h3 className="modal-section-title">Details</h3>
-//                     <div className="modal-grid">
-//                       <div className="modal-field">
-//                         <label className="modal-label">Title</label>
-//                         <input
-//                           className="modal-input"
-//                           value={editIssue.title}
-//                           onChange={e => handleUpdateField('title', e.target.value)}
-//                           placeholder="Enter issue title"
-//                         />
-//                       </div>
-//                       <div className="modal-field">
-//                         <label className="modal-label">Status</label>
-//                         <select
-//                           className="modal-select"
-//                           value={editIssue.status}
-//                           onChange={e => handleUpdateField('status', e.target.value)}
-//                         >
-//                           {columnsByLane[editIssue.epic]?.map(st => (
-//                             <option key={st} value={st}>{st.charAt(0).toUpperCase() + st.slice(1)}</option>
-//                           )) || defaultStatuses.map(st => (
-//                             <option key={st} value={st}>{st.charAt(0).toUpperCase() + st.slice(1)}</option>
-//                           ))}
-//                         </select>
-//                       </div>
-//                       <div className="modal-field">
-//                         <label className="modal-label">Assignee</label>
-//                         <input
-//                           className="modal-input"
-//                           value={editIssue.assignee}
-//                           onChange={e => handleUpdateField('assignee', e.target.value)}
-//                           placeholder="Unassigned"
-//                         />
-//                       </div>
-//                       <div className="modal-field">
-//                         <label className="modal-label">Reporter</label>
-//                         <input
-//                           className="modal-input modal-input-disabled"
-//                           disabled
-//                           value={editIssue.reporter}
-//                         />
-//                       </div>
-//                       <div className="modal-field">
-//                         <label className="modal-label">Priority</label>
-//                         <select
-//                           className="modal-select"
-//                           value={editIssue.priority}
-//                           onChange={e => handleUpdateField('priority', e.target.value)}
-//                         >
-//                           <option>Low</option>
-//                           <option>Medium</option>
-//                           <option>High</option>
-//                            <option>Critical</option>
-
-//                         </select>
-//                       </div>
-//                       <div className="modal-field">
-//                         <label className="modal-label">Story Points</label>
-//                         <input
-//                           className="modal-input"
-//                           type="number"
-//                           value={editIssue.storyPoints}
-//                           onChange={e => handleUpdateField('storyPoints', e.target.value)}
-//                           placeholder="0"
-//                         />
-//                       </div>
-//                       <div className="modal-field">
-//                         <label className="modal-label">Start Date</label>
-//                         <input
-//                           className="modal-input"
-//                           type="date"
-//                           value={editIssue.startDate}
-//                           onChange={e => handleUpdateField('startDate', e.target.value)}
-//                         />
-//                       </div>
-//                       <div className="modal-field">
-//                         <label className="modal-label">Due Date</label>
-//                         <input
-//                           className="modal-input"
-//                           type="date"
-//                           value={editIssue.dueDate}
-//                           onChange={e => handleUpdateField('dueDate', e.target.value)}
-//                         />
-//                       </div>
-//                       <div className="input-group file-group">
-//                         <label className="input-label">Attach File</label>
-//                         <label htmlFor="profileFile" className="file-upload-btn">
-//                           <FiUpload className="btn-icon" />
-//                           {profileFile ? profileFile.name : 'Choose File'}
-//                         </label>
-//                         <input
-//                           id="profileFile"
-//                           type="file"
-//                           name="profileFile"
-//                           onChange={handleNewUserChange}
-//                           accept="image/*"
-//                           style={{ display: 'none' }}
-//                         />
-//                       </div>
-//                     </div>
-//                   </div>
-
-//                   <div className="modal-section">
-//                     <h3 className="modal-section-title">Description</h3>
-//                     <div className="modal-field-full">
-//                       <textarea
-//                         className="modal-textarea"
-//                         rows="4"
-//                         value={editIssue.description}
-//                         onChange={e => handleUpdateField('description', e.target.value)}
-//                         placeholder="Add a detailed description..."
-//                       />
-//                     </div>
-//                   </div>
-
-//                   <div className="modal-section">
-//                     <h3 className="modal-section-title">Subtasks</h3>
-//                     <div className="modal-field-full">
-//                       <div className="subtasks-container">
-//                         <div className="subtasks-header">
-//                           <span className="subtasks-title">
-//                             Subtasks ({getSubtaskProgress(editIssue.subtasks).completed}/{getSubtaskProgress(editIssue.subtasks).total})
-//                           </span>
-//                           {editIssue.subtasks && editIssue.subtasks.length > 0 && (
-//                             <div className="subtask-progress-bar">
-//                               <div
-//                                 className="subtask-progress-fill"
-//                                 style={{ width: `${getSubtaskProgress(editIssue.subtasks).percentage}%` }}
-//                               ></div>
-//                             </div>
-//                           )}
-//                         </div>
-
-//                         <div className="subtasks-list">
-//                           {editIssue.subtasks && editIssue.subtasks.length > 0 ? (
-//                             editIssue.subtasks.map((subtask) => (
-//                               <div key={subtask.id} className="subtask-item">
-//                                 <label className="subtask-checkbox">
-//                                   <input
-//                                     type="checkbox"
-//                                     checked={subtask.completed}
-//                                     onChange={() => toggleSubtask(subtask.id)}
-//                                   />
-//                                   <span className={`subtask-text ${subtask.completed ? 'completed' : ''}`}>
-//                                     {subtask.title}
-//                                   </span>
-//                                 </label>
-//                                 <button
-//                                   className="subtask-delete-btn"
-//                                   onClick={() => deleteSubtask(subtask.id)}
-//                                   title="Delete subtask"
-//                                 >
-//                                   ✕
-//                                 </button>
-//                               </div>
-//                             ))
-//                           ) : (
-//                             <div className="no-subtasks">No subtasks added yet</div>
-//                           )}
-//                         </div>
-
-//                         <div className="add-subtask">
-//                           <input
-//                             type="text"
-//                             className="subtask-input"
-//                             placeholder="Add a new subtask..."
-//                             value={newSubtaskText}
-//                             onChange={(e) => setNewSubtaskText(e.target.value)}
-//                             onKeyPress={handleSubtaskKeyPress}
-//                           />
-//                           <button
-//                             className="add-subtask-btn"
-//                             onClick={addSubtask}
-//                             disabled={!newSubtaskText.trim()}
-//                           >
-//                             Add
-//                           </button>
-//                         </div>
-//                       </div>
-//                     </div>
-//                   </div>
-
-//                   <div className="modal-section">
-//                     <h3 className="modal-section-title">Comments</h3>
-//                     <div className="modal-field-full">
-//                       <textarea
-//                         className="modal-textarea"
-//                         rows="3"
-//                         value={editIssue.comments}
-//                         onChange={e => handleUpdateField('comments', e.target.value)}
-//                         placeholder="Add comments..."
-//                       />
-//                     </div>
-//                   </div>
-//                 </div>
-//               </div>
-
-//               <div className="modal-actions">
-//                 <button className="btn-reset" onClick={handleReset}>Reset Changes</button>
-//                 <div className="modal-actions-right">
-//                   <button
-//                     className="modal-delete-btn"
-//                     onClick={async () => {
-//                       if (window.confirm('Are you sure you want to delete this issue?')) {
-//                         await deleteIssueAPI(selectedIssue.id);
-//                         const refreshed = await listIssues(projectId);
-//                         setIssues(refreshed);
-//                         setSelectedIssue(null);
-//                       }
-//                     }}
-//                   >
-//                     Delete Issue
-//                   </button>
-//                   <button className="btn-save" onClick={handleSave}>Save Changes</button>
-//                 </div>
-//               </div>
-//             </div>
-//           </div>
-//         </div>
-//       )}
-
-//       {/* Inline CSS styles */}
-//       <style>{`
-
-//   body {
-//     font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif;
-//     background-color: #D0F0F4;
-//     margin: 0;
-//     padding: 16px;
-//   }
-//   .board-wrap {
-//     max-width: 100%;
-//     overflow-x: auto;
-//   }
-//   .project-header {
-//     background: #dbeafe;
-//     border-radius: 8px;
-//     padding: 20px 24px;
-//     margin-bottom: 20px;
-//     box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-//     border-left: 4px solid #1976d2;
-//   }
-//   .project-title {
-//     margin: 0 0 12px 0;
-//     font-size: 28px;
-//     font-weight: 700;
-//     color: #172b4d;
-//     line-height: 1.2;
-//   }
-//   .project-stats {
-//     display: flex;
-//     gap: 20px;
-//     flex-wrap: wrap;
-//   }
-//   .project-stat {
-//     background: #dbeafe;
-//     padding: 6px 12px;
-//     border-radius: 16px;
-//     font-size: 14px;
-//     font-weight: 600;
-//     color: #5e6c84;
-//     display: flex;
-//     align-items: center;
-//     gap: 4px;
-//   }
-//   .project-stat:before {
-//     content: "•";
-//     color: #1976d2;
-//     font-weight: bold;
-//   }
-//   @media (min-width: 768px) {
-//     .swimlane {
-//       background: #dbeafe;
-//       border-radius: 8px;
-//       margin-bottom: 16px;
-//       box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-//       overflow: hidden;
-//     }
-//     .kanban-row {
-//       display: flex;
-//       padding: 16px;
-//       gap: 12px;
-//       overflow-x: auto;
-//     }
-//     .kanban-column {
-//       flex: 0 0 260px;
-//       background: #f5f6f8;
-//       border-radius: 6px;
-//       padding: 12px;
-//       display: flex;
-//       flex-direction: column;
-//       gap: 12px;
-//       border: 1px solid #dfe5e5;
-//       user-select: none;
-//       min-height: 400px;
-//     }
-//   }
-//   @media (max-width: 767px) {
-//     body {
-//       padding: 8px;
-//     }
-//     .project-header {
-//       padding: 16px;
-//       margin-bottom: 16px;
-//       border-left-width: 3px;
-//     }
-//     .project-title {
-//       font-size: 22px;
-//       margin-bottom: 10px;
-//     }
-//     .project-stats {
-//       gap: 12px;
-//     }
-//     .project-stat {
-//       font-size: 12px;
-//       padding: 4px 10px;
-//     }
-//     .mobile-swimlane-selector {
-//       margin-bottom: 16px;
-//       position: sticky;
-//       top: 0;
-//       background: white;
-//       padding: 12px;
-//       border-radius: 8px;
-//       box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-//       z-index: 100;
-//     }
-//     .mobile-select {
-//       width: 100%;
-//       padding: 12px;
-//       border: 1px solid #dfe5e5;
-//       border-radius: 6px;
-//       font-size: 16px;
-//       background: white;
-//     }
-//     .swimlane {
-//       background: #dbeafe;
-//       border-radius: 8px;
-//       margin-bottom: 12px;
-//       box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-//       overflow: hidden;
-//     }
-//     .swimlane-header {
-//       display: flex;
-//       align-items: center;
-//       padding: 12px;
-//       background: #fafbfc;
-//       border-bottom: 1px solid #dfe5e5;
-//       font-weight: 600;
-//       font-size: 14px;
-//       color: #172b4d;
-//       position: relative;
-//     }
-//     .mobile-swimlane-toggle {
-//       background:#dbeafe;
-//       border: none;
-//       font-size: 16px;
-//       color: #5e6c84;
-//       margin-left: auto;
-//       padding: 4px 8px;
-//     }
-//     .kanban-row.mobile-view {
-//       display: block;
-//       padding: 8px;
-//       overflow-x: auto;
-//       white-space: nowrap;
-//     }
-//     .kanban-column.mobile-column {
-//       display: inline-block;
-//       vertical-align: top;
-//       width: 280px;
-//       margin-right: 8px;
-//       background: #dbeafe;
-//       border-radius: 6px;
-//       padding: 8px;
-//       border: 1px solid #dfe5e5;
-//       user-select: none;
-//       min-height: 300px;
-//     }
-//     .col-header {
-//       display: flex;
-//       align-items: center;
-//       margin-bottom: 8px;
-//       gap: 6px;
-//     }
-//     .col-title {
-//       font-weight: 600;
-//       font-size: 11px;
-//       color: #5e6c84;
-//       text-transform: uppercase;
-//       letter-spacing: 0.5px;
-//       flex-grow: 1;
-//     }
-//     .card-item {
-//       background: #dbeafe;
-//       border-radius: 6px;
-//       padding: 10px;
-//       box-shadow: 0 0 2px rgba(0,0,0,0.1);
-//       cursor: pointer;
-//       user-select: none;
-//       display: flex;
-//       flex-direction: column;
-//       gap: 6px;
-//       border: 1px solid #dfe5e5;
-//       margin-bottom: 8px;
-//     }
-//     .card-title {
-//       font-weight: 600;
-//       font-size: 13px;
-//       color: #2b3a59;
-//       line-height: 1.3;
-//     }
-//     .card-meta {
-//       display: flex;
-//       gap: 6px;
-//       font-size: 10px;
-//       color: #6b7c93;
-//       align-items: center;
-//       flex-wrap: wrap;
-//     }
-//     .modal.mobile-modal {
-//       width: 100%;
-//       max-height: 90vh;
-//       display: flex;
-//       flex-direction: column;
-//     }
-//     .modal-content.mobile-modal-content {
-//       display: flex;
-//       flex-direction: column;
-//       gap: 12px;
-//       overflow-y: auto;
-//     }
-//     .modal-field {
-//       display: flex;
-//       flex-direction: column;
-//       gap: 4px;
-//     }
-//     .modal-field input, .modal-field textarea, .modal-field select {
-//       padding: 10px;
-//       font-size: 16px;
-//     }
-//     .modal-actions {
-//       display: flex;
-//       gap: 8px;
-//       justify-content: space-between;
-//       margin-top: 16px;
-//     }
-//     .modal-actions button {
-//       flex: 1;
-//       padding: 12px;
-//       font-size: 16px;
-//     }
-//   }
-
-//   /* Card Styles */
-//   .card-item {
-//     background: #dbeafe;
-//     border-radius: 8px;
-//     padding: 12px;
-//     box-shadow: 0 0 2px rgba(0,0,0,0.1);
-//     cursor: pointer;
-//     user-select: none;
-//     display: flex;
-//     flex-direction: column;
-//     gap: 8px;
-//     border: 1px solid #dfe5e5;
-//     transition: box-shadow 0.2s ease, border-color 0.2s ease;
-//   }
-
-//   .card-item:hover {
-//     box-shadow: 0px 2px 10px rgba(0,0,0,0.15);
-//     border-color: #a2adba;
-//   }
-
-//   .card-top {
-//     display: flex;
-//     justify-content: space-between;
-//     align-items: flex-start;
-//     gap: 8px;
-//   }
-
-//   .card-tag {
-//     padding: 2px 6px;
-//     border-radius: 4px;
-//     font-size: 10px;
-//     font-weight: 600;
-//     text-transform: uppercase;
-//   }
-
-//   .card-tag-task { background: #e3f2fd; color: #1976d2; }
-//   .card-tag-subtask { background: #f3e5f5; color: #7b1fa2; }
-//   .card-tag-bug { background: #dbeafe; color: #d32f2f; }
-
-//   .card-id {
-//     font-size: 10px;
-//     color: #6b7c93;
-//     font-family: 'Monaco', 'Menlo', monospace;
-//     font-weight: 600;
-//   }
-
-//   .card-title {
-//     font-weight: 600;
-//     font-size: 14px;
-//     color: #2b3a59;
-//     line-height: 1.3;
-//     margin: 0;
-//     word-break: break-word;
-//   }
-
-//   .card-meta {
-//     display: flex;
-//     flex-direction: column;
-//     gap: 6px;
-//   }
-
-//   .card-assignee {
-//     display: flex;
-//     align-items: center;
-//     gap: 4px;
-//     font-size: 11px;
-//     color: #5e6c84;
-//     font-weight: 500;
-//   }
-
-//   .card-due {
-//     display: flex;
-//     align-items: center;
-//     gap: 4px;
-//     font-size: 11px;
-//     color: #d32f2f;
-//     font-weight: 500;
-//   }
-
-//   .card-priority {
-//     display: flex;
-//     align-items: center;
-//     gap: 4px;
-//     font-size: 11px;
-//     font-weight: 600;
-//     padding: 2px 6px;
-//     border-radius: 4px;
-//     width: fit-content;
-//   }
-
-//   .card-priority.high { background: #ffebee; color: #d32f2f; }
-//   .card-priority.medium { background: #fff3e0; color: #f57c00; }
-//   .card-priority.low { background: #e8f5e8; color: #388e3c; }
-
-//   /* Modal Subtasks Styles */
-//   .subtasks-container {
-//     display: flex;
-//     flex-direction: column;
-//     gap: 12px;
-//   }
-
-//   .subtasks-header {
-//     display: flex;
-//     flex-direction: column;
-//     gap: 8px;
-//   }
-
-//   .subtasks-title {
-//     font-size: 14px;
-//     font-weight: 600;
-//     color: #44546f;
-//   }
-
-//   .subtasks-list {
-//     display: flex;
-//     flex-direction: column;
-//     gap: 8px;
-//     max-height: 200px;
-//     overflow-y: auto;
-//   }
-
-//   .subtask-item {
-//     display: flex;
-//     align-items: center;
-//     justify-content: space-between;
-//     padding: 8px 12px;
-//     background: #dbeafe;
-//     border-radius: 6px;
-//     border: 1px solid #e1e4e8;
-//     transition: background-color 0.2s;
-//   }
-
-//   .subtask-item:hover {
-//     background: #f1f2f4;
-//   }
-
-//   .subtask-checkbox {
-//     display: flex;
-//     align-items: center;
-//     gap: 8px;
-//     flex: 1;
-//     cursor: pointer;
-//     margin: 0;
-//   }
-
-//   .subtask-checkbox input[type="checkbox"] {
-//     margin: 0;
-//     cursor: pointer;
-//   }
-
-//   .subtask-text {
-//     font-size: 14px;
-//     color: #44546f;
-//     transition: all 0.2s;
-//   }
-
-//   .subtask-text.completed {
-//     text-decoration: line-through;
-//     color: #8b9cb1;
-//   }
-
-//   .subtask-delete-btn {
-//     background: none;
-//     border: none;
-//     color: #d32f2f;
-//     cursor: pointer;
-//     padding: 4px;
-//     border-radius: 4px;
-//     font-size: 12px;
-//     transition: background-color 0.2s;
-//   }
-
-//   .subtask-delete-btn:hover {
-//     background: #ffebee;
-//   }
-
-//   .no-subtasks {
-//     text-align: center;
-//     color: #8b9cb1;
-//     font-style: italic;
-//     padding: 16px;
-//     font-size: 14px;
-//   }
-
-//   .add-subtask {
-//     display: flex;
-//     gap: 8px;
-//   }
-
-//   .subtask-input {
-//     flex: 1;
-//     padding: 8px 12px;
-//     border: 2px solid #dfe1e6;
-//     border-radius: 6px;
-//     font-size: 14px;
-//     transition: border-color 0.2s;
-//   }
-
-//   .subtask-input:focus {
-//     outline: none;
-//     border-color: #1976d2;
-//   }
-
-//   .add-subtask-btn {
-//     padding: 8px 16px;
-//     background: #1976d2;
-//     color: white;
-//     border: none;
-//     border-radius: 6px;
-//     font-size: 14px;
-//     font-weight: 600;
-//     cursor: pointer;
-//     transition: background-color 0.2s;
-//   }
-
-//   .add-subtask-btn:hover:not(:disabled) {
-//     background: #1565c0;
-//   }
-
-//   .add-subtask-btn:disabled {
-//     background: #b0bec5;
-//     cursor: not-allowed;
-//   }
-
-//   /* Enhanced Modal Styles - Centered Positioning */
-//   .modal-overlay {
-//     position: fixed;
-//     top: 0;
-//     left: 0;
-//     right: 0;
-//     bottom: 0;
-//     background: rgba(0,0,0,0.6);
-//     display: flex;
-//     align-items: center;
-//     justify-content: center;
-//     z-index: 10000;
-//     padding: 20px;
-//   }
-
-//   .modal-container {
-//     max-width: 1000px;
-//     max-height: 90vh;
-//     display: flex;
-//     align-items: center;
-//     justify-content: center;
-//   position: fixed;
-//   // top: 0;
-//   left: 400px;
-//   width: 900px;
-//   height: 100%;
-//   z-index: 999;
-//   }
-
-// .file-upload-container {
-//   display: flex;
-//   align-items: center;
-//   gap: 12px;
-//   font-family: Arial, sans-serif;
-// }
-
-// .file-upload-btn {
-//   display: flex;
-//   align-items: center;
-//   gap: 8px;
-//   padding: 10px 20px;
-//   background-color: #007bff;
-//   border-radius: 8px;
-//   color: white;
-//   font-weight: 600;
-//   font-size: 16px;
-//   cursor: pointer;
-//   user-select: none;
-//   border: none;
-//   transition: background-color 0.25s ease;
-// }
-
-// .file-upload-btn:hover {
-//   background-color: #0056b3;
-// }
-
-// .btn-icon {
-//   font-size: 20px;
-// }
-
-// #profileFile {
-//   display: inline-block;
-//   margin-left: 10px;
-//   font-size: 14px;
-//   color: #555;
-//   cursor: pointer;
-// }
-
-//   .modal {
-//     background: white;
-//     border-radius: 12px;
-//     width: 100%;
-//     max-height: 90vh;
-//     display: flex;
-//     flex-direction: column;
-//     overflow: hidden;
-//     box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-//     margin: 0 auto;
-//     transition: box-shadow 0.2s ease;
-//   }
-
-//   .modal-dragging {
-//     box-shadow: 0 25px 80px rgba(0,0,0,0.4);
-//     cursor: grabbing;
-//   }
-
-//   .modal-header {
-//     display: flex;
-//     justify-content: space-between;
-//     align-items: flex-start;
-//     padding: 24px;
-//     background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-//     border-bottom: 1px solid #e1e4e8;
-//     flex-shrink: 0;
-//     cursor: grab;
-//     transition: background-color 0.2s ease;
-//   }
-
-//   .modal-header:hover {
-//     background: linear-gradient(135deg, #e9ecef 0%, #dee2e6 100%);
-//   }
-
-//   .modal-dragging .modal-header {
-//     cursor: grabbing;
-//     background: linear-gradient(135deg, #dee2e6 0%, #ced4da 100%);
-//   }
-
-//   .modal-header-content {
-//     flex: 1;
-//     min-width: 0;
-//   }
-
-//   .modal-epic-badge {
-//     display: inline-block;
-//     background: #1976d2;
-//     color: white;
-//     padding: 4px 12px;
-//     border-radius: 16px;
-//     font-size: 12px;
-//     font-weight: 600;
-//     margin-bottom: 8px;
-//   }
-
-//   .modal-title {
-//     margin: 0 0 8px 0;
-//     font-size: 24px;
-//     font-weight: 700;
-//     color: #172b4d;
-//     line-height: 1.3;
-//     word-wrap: break-word;
-//   }
-
-//   .modal-id-type {
-//     display: flex;
-//     gap: 12px;
-//     align-items: center;
-//   }
-
-//   .modal-id {
-//     font-size: 14px;
-//     color: #5e6c84;
-//     font-family: 'Monaco', 'Menlo', monospace;
-//   }
-
-//   .modal-type {
-//     padding: 2px 8px;
-//     border-radius: 4px;
-//     font-size: 12px;
-//     font-weight: 600;
-//     text-transform: uppercase;
-//   }
-
-//   .modal-type-task { background: #e3f2fd; color: #1976d2; }
-//   .modal-type-subtask { background: #f3e5f5; color: #7b1fa2; }
-//   .modal-type-bug { background: #ffebee; color: #d32f2f; }
-
-//   .modal-close-btn {
-//     background: none;
-//     border: none;
-//     font-size: 20px;
-//     color: #5e6c84;
-//     cursor: pointer;
-//     padding: 8px;
-//     margin: -8px;
-//     border-radius: 4px;
-//     transition: background-color 0.2s;
-//     flex-shrink: 0;
-//   }
-
-//   .modal-close-btn:hover {
-//     background: rgba(0,0,0,0.1);
-//   }
-
-//   .modal-content-scroll {
-//     flex: 1;
-//     overflow-y: auto;
-//     padding: 0 24px;
-//   }
-
-//   .modal-content {
-//     padding: 24px 0;
-//     display: flex;
-//     flex-direction: column;
-//     gap: 24px;
-//   }
-
-//   .modal-section {
-//     display: flex;
-//     flex-direction: column;
-//     gap: 16px;
-//   }
-
-//   .modal-section-title {
-//     font-size: 18px;
-//     font-weight: 600;
-//     color: #172b4d;
-//     margin: 0;
-//     padding-bottom: 8px;
-//     border-bottom: 2px solid #f0f0f0;
-//   }
-
-//   .modal-grid {
-//     display: grid;
-//     grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-//     gap: 16px;
-//   }
-
-//   .modal-field {
-//     display: flex;
-//     flex-direction: column;
-//     gap: 6px;
-//   }
-
-//   .modal-field-full {
-//     grid-column: 1 / -1;
-//     display: flex;
-//     flex-direction: column;
-//     gap: 6px;
-//   }
-
-//   .modal-label {
-//     font-size: 14px;
-//     font-weight: 600;
-//     color: #44546f;
-//     margin: 0;
-//   }
-
-//   .modal-input, .modal-select, .modal-textarea {
-//     padding: 12px;
-//     border: 2px solid #dfe1e6;
-//     border-radius: 8px;
-//     font-size: 14px;
-//     font-family: inherit;
-//     transition: border-color 0.2s, box-shadow 0.2s;
-//     background: white;
-//   }
-
-//   .modal-input:focus, .modal-select:focus, .modal-textarea:focus {
-//     outline: none;
-//     border-color: #1976d2;
-//     box-shadow: 0 0 0 3px rgba(25, 118, 210, 0.1);
-//   }
-
-//   .modal-input-disabled {
-//     background: #f8f9fa;
-//     color: #6b778c;
-//     cursor: not-allowed;
-//   }
-
-//   .modal-textarea {
-//     resize: vertical;
-//     min-height: 80px;
-//     line-height: 1.5;
-//   }
-
-//   .modal-actions {
-//     display: flex;
-//     justify-content: space-between;
-//     align-items: center;
-//     padding: 20px 24px;
-//     background: #f8f9fa;
-//     border-top: 1px solid #e1e4e8;
-//     gap: 16px;
-//     flex-shrink: 0;
-//   }
-
-//   .modal-actions-right {
-//     display: flex;
-//     gap: 12px;
-//     align-items: center;
-//   }
-
-//   .btn-reset {
-//     padding: 10px 20px;
-//     border: 1px solid #dcdfe4;
-//     background: white;
-//     color: #44546f;
-//     border-radius: 6px;
-//     font-weight: 600;
-//     cursor: pointer;
-//     transition: all 0.2s;
-//   }
-
-//   .btn-reset:hover {
-//     background: #f1f2f4;
-//     border-color: #c1c7d0;
-//   }
-
-//   .btn-save {
-//     padding: 10px 24px;
-//     border: none;
-//     background: #1976d2;
-//     color: white;
-//     border-radius: 6px;
-//     font-weight: 600;
-//     cursor: pointer;
-//     transition: background-color 0.2s;
-//   }
-
-//   .btn-save:hover {
-//     background: #1565c0;
-//   }
-
-//   .modal-delete-btn {
-//     padding: 10px 20px;
-//     border: 1px solid #ffcdd2;
-//     background: white;
-//     color: #d32f2f;
-//     border-radius: 6px;
-//     font-weight: 600;
-//     cursor: pointer;
-//     transition: all 0.2s;
-//   }
-
-//   .modal-delete-btn:hover {
-//     background: #ffebee;
-//     border-color: #ef5350;
-//   }
-
-//   @media (max-width: 767px) {
-//     .modal-overlay {
-//       padding: 10px;
-//     }
-
-//     .modal-container.mobile-modal-container {
-//       width: 100%;
-//       height: 100%;
-//       padding: 0;
-//     }
-
-//     .modal.mobile-modal {
-//       width: 100%;
-//       max-height: 100%;
-//       border-radius: 0;
-//       margin: 0;
-//     }
-
-//     .modal-header {
-//       padding: 16px;
-//       flex-direction: column;
-//       gap: 12px;
-//       cursor: default;
-//     }
-
-//     .modal-close-btn {
-//       align-self: flex-end;
-//       margin: 0;
-//     }
-
-//     .modal-content-scroll {
-//       padding: 0 16px;
-//     }
-
-//     .modal-content {
-//       padding: 16px 0;
-//       gap: 20px;
-//     }
-
-//     .modal-grid {
-//       grid-template-columns: 1fr;
-//       gap: 12px;
-//     }
-
-//     .modal-actions {
-//       padding: 16px;
-//       flex-direction: column;
-//       gap: 12px;
-//     }
-
-//     .modal-actions-right {
-//       width: 100%;
-//       justify-content: space-between;
-//     }
-
-//     .btn-reset, .modal-delete-btn, .btn-save {
-//       flex: 1;
-//       text-align: center;
-//     }
-
-//     .add-subtask {
-//       flex-direction: column;
-//     }
-
-//     .subtasks-list {
-//       max-height: 150px;
-//     }
-//   }
-
-//   .swimlane-header {
-//     display: flex;
-//     align-items: center;
-//     padding: 12px 16px;
-//     background: #fafbfc;
-//     border-bottom: 1px solid #dfe5e5;
-//     font-weight: 600;
-//     font-size: 14px;
-//     color: #172b4d;
-//   }
-//   .swimlane-toggle, .swimlane-icon {
-//     color: #5e6c84;
-//     margin-right: 8px;
-//     cursor: pointer;
-//   }
-//   .swimlane-toggle {
-//     border: none;
-//     background: transparent;
-//     font-size: 14px;
-//   }
-//   .swimlane-icon {
-//     font-size: 18px;
-//   }
-//   .swimlane-title-input {
-//     border: 1px solid #dfe5e5;
-//     border-radius: 4px;
-//     padding: 4px 8px;
-//     font-size: 14px;
-//     font-weight: 600;
-//     background: white;
-//     margin-right: 8px;
-//     min-width: 150px;
-//     color: #172b4d;
-//   }
-//   .swimlane-title-input:focus {
-//     outline: none;
-//     border-color: #1976d2;
-//   }
-//   .swimlane-count {
-//     color: #5e6c84;
-//     font-size: 12px;
-//     font-weight: normal;
-//   }
-//   .col-header {
-//     display: flex;
-//     align-items: center;
-//     margin-bottom: 4px;
-//     gap: 6px;
-//   }
-//   .col-title {
-//     font-weight: 600;
-//     font-size: 12px;
-//     color: #5e6c84;
-//     text-transform: uppercase;
-//     letter-spacing: 0.5px;
-//     flex-grow: 1;
-//   }
-//   .col-count {
-//     background: #dfe5e5;
-//     color: #5e6c84;
-//     border-radius: 12px;
-//     padding: 2px 8px;
-//     font-size: 11px;
-//     font-weight: 600;
-//     min-width: 20px;
-//     text-align: center;
-//   }
-//   .col-icons {
-//     display: flex;
-//     gap: 6px;
-//   }
-//   .col-icon {
-//     cursor: pointer;
-//     color: #5e6c84;
-//     font-size: 18px;
-//     background: none;
-//     border: none;
-//     padding: 0;
-//   }
-//   .create-card {
-//     background: white;
-//     padding: 10px;
-//     border-radius: 6px;
-//     box-shadow: 0 0 2px rgba(0, 0, 0, 0.2);
-//     display: flex;
-//     flex-direction: column;
-//     gap: 10px;
-//   }
-//   button {
-//     cursor: pointer;
-//     transition: background-color 0.2s;
-//   }
-//   button:hover {
-//     opacity: 0.9;
-//   }
-//   @media (max-width: 767px) {
-//     button, .card-item, .col-icon {
-//       min-height: 44px;
-//       min-width: 44px;
-//     }
-//     .card-item {
-//       touch-action: manipulation;
-//     }
-//   }
-// `}</style>
-
-//     </div>
-//   );
-// }
-
-// const btnStyle = {
-//   cancel: {
-//     padding: '10px 18px',
-//     borderRadius: '6px',
-//     border: 'none',
-//     backgroundColor: '#5e6c84',
-//     color: 'white',
-//     fontWeight: '600',
-//     fontSize: '14px',
-//     cursor: 'pointer'
-//   },
-//   create: {
-//     padding: '10px 18px',
-//     borderRadius: '6px',
-//     border: 'none',
-//     backgroundColor: '#1976d2',
-//     color: 'white',
-//     fontWeight: '600',
-//     fontSize: '14px',
-//     cursor: 'pointer'
-//   },
-//   delete: {
-//     padding: '10px 18px',
-//     borderRadius: '6px',
-//     border: 'none',
-//     backgroundColor: '#d32f2f',
-//     color: 'white',
-//     fontWeight: '600',
-//     fontSize: '14px',
-//     cursor: 'pointer'
-//   }
-// };
-
-// for updates
-
-import React, { useEffect, useState, useRef } from "react";
-import { useParams } from "react-router-dom";
-import { FiUpload } from "react-icons/fi"; // Add this line
+import React, { useEffect, useState, useRef } from 'react';
+import { useParams } from 'react-router-dom';
+import { FiUpload } from 'react-icons/fi';
+import { useAuth } from '../../context/AuthContext';
 
 const mockIssues = [
   {
-    id: "i1",
-    epic: "p1",
-    epicName: "Frontend",
-    status: "todo",
-    type: "Task",
-    title: "Setup repo",
-    assignee: "John Doe",
+    id: 'i1',
+    epic: 'p1',
+    epicName: 'Frontend',
+    status: 'todo',
+    type: 'Task',
+    title: 'Setup repo',
+    assignee: 'John Doe',
     storyPoints: 3,
     labels: [],
-    dueDate: "2025-09-30",
-    reporter: "admin",
-    priority: "High",
-    startDate: "2025-09-15",
-    description: "Setup the initial repository structure and configuration",
+    dueDate: '2025-09-30',
+    reporter: 'admin',
+    priority: 'High',
+    startDate: '2025-09-15',
+    description: 'Setup the initial repository structure and configuration',
     subtasks: [
-      { id: "st1", title: "Create GitHub repository", completed: true },
-      { id: "st2", title: "Setup CI/CD pipeline", completed: false },
-      {
-        id: "st3",
-        title: "Configure linting and formatting",
-        completed: false,
-      },
+      { id: 'st1', title: 'Create GitHub repository', completed: true },
+      { id: 'st2', title: 'Setup CI/CD pipeline', completed: false },
+      { id: 'st3', title: 'Configure linting and formatting', completed: false }
     ],
-    comments: "Initial setup required for the project",
+    comments: 'Initial setup required for the project'
   },
   {
-    id: "i3",
-    epic: "p2",
-    epicName: "Middleware",
-    status: "todo",
-    type: "Subtask",
-    title: "API integration",
-    assignee: "Jane Smith",
+    id: 'i3',
+    epic: 'p2',
+    epicName: 'Middleware',
+    status: 'todo',
+    type: 'Subtask',
+    title: 'API integration',
+    assignee: 'Jane Smith',
     storyPoints: 2,
     labels: [],
-    dueDate: "",
-    reporter: "lead-dev",
-    priority: "Low",
-    startDate: "2025-09-18",
-    description: "Integrate with external API services",
+    dueDate: '',
+    reporter: 'lead-dev',
+    priority: 'Low',
+    startDate: '2025-09-18',
+    description: 'Integrate with external API services',
     subtasks: [
-      { id: "st4", title: "Design API endpoints", completed: true },
-      { id: "st5", title: "Implement authentication", completed: false },
+      { id: 'st4', title: 'Design API endpoints', completed: true },
+      { id: 'st5', title: 'Implement authentication', completed: false }
     ],
-    comments: "",
-  },
+    comments: ''
+  }
 ];
 
-const defaultStatuses = [
-  "backlog",
-  "todo",
-  "inprogress",
-  "code review",
-  "done",
-];
-const mockEpics = [
-  { id: "p1", name: "Frontend" },
-  { id: "p2", name: "Middleware" },
-];
-const mockProjects = [
-  { id: "p1", name: "E-Commerce Platform" },
-  { id: "p2", name: "API Gateway Service" },
-  { id: "p3", name: "Mobile App Development" },
-];
+const defaultStatuses = ['backlog', 'todo', 'analysis', 'inprogress', 'blocked', 'code review', 'qa', 'milestone', 'done'];
+const mockEpics = [{ id: 'p1', name: 'Frontend' }, { id: 'p2', name: 'Middleware' }];
 
-const simulateApiDelay = () =>
-  new Promise((resolve) => setTimeout(resolve, 200));
+const simulateApiDelay = () => new Promise(resolve => setTimeout(resolve, 200));
 
+// Real API functions that connect to backend
 const listIssues = async (projectId) => {
-  await simulateApiDelay();
-  return mockIssues.filter(
-    (i) => !projectId || i.epic === projectId || i.projectId === projectId,
-  );
+  try {
+    const response = await fetch('http://localhost:8000/tickets');
+    if (response.ok) {
+      const tickets = await response.json();
+      
+      // If projectId is provided, filter tickets by project through epic information
+      let filteredTickets = tickets;
+      if (projectId) {
+        // Get epics for this project
+        const epicsResponse = await fetch(`http://localhost:8000/epics?project_id=${projectId}`);
+        if (epicsResponse.ok) {
+          const projectEpics = await epicsResponse.json();
+          const projectEpicIds = projectEpics.map(epic => epic.id.toString());
+          
+          // Filter tickets that belong to this project's epics
+          filteredTickets = tickets.filter(ticket => {
+            if (ticket.description) {
+              const epicMatch = ticket.description.match(/\[EPIC:([^:]+):([^\]]+)\]/);
+              if (epicMatch) {
+                let epicId = epicMatch[1];
+                // Remove 'p' prefix if present to normalize ID
+                if (epicId.startsWith('p')) {
+                  epicId = epicId.substring(1);
+                }
+                return projectEpicIds.includes(epicId);
+              }
+            }
+            return false;
+          });
+        }
+      }
+      
+      // Convert tickets to the format expected by the UI
+      return filteredTickets.map(ticket => {
+        // Map backend statuses to frontend statuses
+        let mappedStatus = ticket.status.toLowerCase().replace(/\s+/g, '');
+        if (mappedStatus === 'open') {
+          mappedStatus = 'backlog';
+        } else if (mappedStatus === 'todo') {
+          mappedStatus = 'todo';
+        } else if (mappedStatus === 'analysis') {
+          mappedStatus = 'analysis';
+        } else if (mappedStatus === 'inprogress') {
+          mappedStatus = 'inprogress';
+        } else if (mappedStatus === 'blocked') {
+          mappedStatus = 'blocked';
+        } else if (mappedStatus === 'codereview') {
+          mappedStatus = 'code review';
+        } else if (mappedStatus === 'qa') {
+          mappedStatus = 'qa';
+        } else if (mappedStatus === 'done') {
+          mappedStatus = 'done';
+        }
+        
+        // Parse epic information from description
+        let epic = 'p1'; // Default to Frontend
+        let epicName = 'Frontend';
+
+        if (ticket.description) {
+          const epicMatch = ticket.description.match(/\[EPIC:([^:]+):([^\]]+)\]/);
+          if (epicMatch) {
+            let epicId = epicMatch[1];
+            // Ensure epic ID has 'p' prefix, add it if not present
+            if (!epicId.startsWith('p')) {
+              epic = `p${epicId}`;
+            } else {
+              epic = epicId;
+            }
+            epicName = epicMatch[2];
+          }
+        }
+        
+        // Clean description by removing epic info
+        let cleanDescription = ticket.description || '';
+        if (cleanDescription.includes('[EPIC:')) {
+          cleanDescription = cleanDescription.replace(/\[EPIC:[^\]]+\]\s*/, '');
+        }
+        
+        return {
+          id: ticket.id.toString(),
+          epic: epic,
+          epicName: epicName,
+          status: mappedStatus,
+          type: 'Task',
+          title: ticket.title,
+          assignee: '',
+          storyPoints: '',
+          labels: [],
+          dueDate: '',
+          reporter: 'user',
+          priority: ticket.priority,
+          startDate: ticket.created_at ? ticket.created_at.split('T')[0] : '',
+          description: cleanDescription,
+          subtasks: [],
+          comments: ''
+        };
+      });
+    }
+  } catch (error) {
+    console.error('Error fetching tickets:', error);
+  }
+  // Only return mock issues if no project is specified (fallback for general use)
+  if (!projectId) {
+    return mockIssues;
+  }
+  return []; // Return empty array for specific projects to avoid showing wrong data
 };
-const listEpics = async () => {
-  await simulateApiDelay();
-  return mockEpics;
+
+const listProjects = async () => {
+  try {
+    const response = await fetch('http://localhost:8000/projects');
+    if (response.ok) {
+      const projects = await response.json();
+      return projects;
+    }
+  } catch (error) {
+    console.error('Error fetching projects:', error);
+  }
+  return [];
 };
-const getProjectName = async (projectId) => {
-  await simulateApiDelay();
-  const project = mockProjects.find((p) => p.id === projectId);
-  return project ? project.name : "Untitled Project";
+
+const listEpics = async (projectId) => { 
+  try {
+    const url = projectId ? `http://localhost:8000/epics?project_id=${projectId}` : 'http://localhost:8000/epics';
+    console.log('User portal: Fetching epics from:', url);
+    const response = await fetch(url);
+    if (response.ok) {
+      const epics = await response.json();
+      console.log('User portal: Fetched epics from backend:', epics.length, epics);
+      // Convert backend epics to frontend format
+      const mappedEpics = epics.map(epic => ({
+        id: `p${epic.id}`,
+        name: epic.name,
+        projectId: epic.project_id  // ✅ Include project_id for filtering!
+      }));
+      console.log('User portal: Mapped epics:', mappedEpics);
+      return mappedEpics;
+    }
+  } catch (error) {
+    console.error('Error fetching epics:', error);
+  }
+  // Return empty array if fetch failed
+  console.log('User portal: Returning empty epics array');
+  return [];
 };
-const createEpicAPI = async (epicName) => {
-  await simulateApiDelay();
-  const newEpic = { id: "p" + (mockEpics.length + 1), name: epicName };
+
+const createEpicAPI = async (epicName, projectId, userName) => {
+  try {
+    // Add user_name as query parameter for admin tracking
+    const url = new URL('http://localhost:8000/epics');
+    if (userName) {
+      url.searchParams.append('user_name', userName);
+    }
+    
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        name: epicName,
+        project_id: projectId
+      }),
+    });
+    if (response.ok) {
+      const epic = await response.json();
+      return {
+        id: `p${epic.id}`,
+        name: epic.name
+      };
+    }
+  } catch (error) {
+    console.error('Error creating epic:', error);
+  }
+  // Fallback to mock creation
+  const newEpic = { id: 'p' + (mockEpics.length + 1), name: epicName };
   mockEpics.push(newEpic);
   return newEpic;
 };
+
 const deleteEpicAPI = async (epicId) => {
-  await simulateApiDelay();
-  const epicIndex = mockEpics.findIndex((epic) => epic.id === epicId);
-  if (epicIndex > -1) mockEpics.splice(epicIndex, 1);
-  const issueIndices = [];
-  mockIssues.forEach((issue, index) => {
-    if (issue.epic === epicId) issueIndices.push(index);
-  });
-  issueIndices
-    .sort((a, b) => b - a)
-    .forEach((index) => {
-      mockIssues.splice(index, 1);
+  try {
+    // Extract numeric ID from 'p1', 'p2', etc.
+    const numericId = epicId.replace('p', '');
+    const response = await fetch(`http://localhost:8000/epics/${numericId}`, {
+      method: 'DELETE',
     });
+    if (response.ok) {
+      return true;
+    }
+  } catch (error) {
+    console.error('Error deleting epic:', error);
+  }
+  // Fallback to mock deletion
+  const epicIndex = mockEpics.findIndex(epic => epic.id === epicId);
+  if (epicIndex > -1) mockEpics.splice(epicIndex, 1);
+  return true;
 };
+
 const moveIssue = async (issueId, status) => {
-  await simulateApiDelay();
-  const issue = mockIssues.find((i) => i.id === issueId);
-  if (!issue) throw new Error("Issue not found");
-  issue.status = status;
+  try {
+    // Map frontend statuses to backend statuses
+    let backendStatus = status;
+    if (status === 'backlog') {
+      backendStatus = 'Open';
+    } else if (status === 'todo') {
+      backendStatus = 'Todo';
+    } else if (status === 'analysis') {
+      backendStatus = 'Analysis';
+    } else if (status === 'inprogress') {
+      backendStatus = 'In Progress';
+    } else if (status === 'blocked') {
+      backendStatus = 'Blocked';
+    } else if (status === 'code review') {
+      backendStatus = 'Code review';
+    } else if (status === 'qa') {
+      backendStatus = 'QA';
+    } else if (status === 'done') {
+      backendStatus = 'Done';
+    } else {
+      // Default: capitalize first letter
+      backendStatus = status.charAt(0).toUpperCase() + status.slice(1);
+    }
+    
+    const response = await fetch(`http://localhost:8000/tickets/${issueId}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        status: backendStatus
+      }),
+    });
+    if (!response.ok) {
+      throw new Error('Failed to update ticket');
+    }
+  } catch (error) {
+    console.error('Error updating ticket:', error);
+    throw error;
+  }
 };
-const createIssueAPI = async (issue) => {
-  await simulateApiDelay();
-  mockIssues.push(issue);
+
+const createIssueAPI = async (issue, projectId, userName) => { 
+  try {
+    // Store epic information in the description
+    // Remove 'p' prefix from epic ID if present
+    const epicId = issue.epic.toString().startsWith('p') ? issue.epic.substring(1) : issue.epic;
+    const epicInfo = `[EPIC:${epicId}:${issue.epicName}]`;
+    const description = issue.description ? `${epicInfo} ${issue.description}` : epicInfo;
+    
+    // Get or create user ID for the logged-in user
+    let userId = 1; // Default fallback
+    try {
+      const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+      const userEmail = currentUser.email || userName;
+      
+      if (userEmail) {
+        // Try to get user from users table by email
+        const usersResponse = await fetch(`http://localhost:8000/users-by-email/${encodeURIComponent(userEmail)}`);
+        
+        if (usersResponse.ok) {
+          const user = await usersResponse.json();
+          userId = user.id;
+          console.log('Using existing user ID:', userId);
+        } else {
+          // User doesn't exist in users table, create one
+          console.log('User not found, creating user with email:', userEmail);
+          const createUserResponse = await fetch('http://localhost:8000/users-simple', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              email: userEmail,
+              name: currentUser.name || userEmail.split('@')[0]
+            })
+          });
+          
+          if (createUserResponse.ok) {
+            const newUser = await createUserResponse.json();
+            userId = newUser.id;
+            console.log('Created new user with ID:', userId);
+          }
+        }
+      }
+    } catch (userError) {
+      console.warn('Error getting/creating user, using default user_id:', userError);
+    }
+    
+    // Add query parameters for admin tracking
+    const url = new URL('http://localhost:8000/tickets');
+    if (epicId) {
+      url.searchParams.append('epic_id', epicId);
+    }
+    if (projectId) {
+      url.searchParams.append('project_id', projectId);
+    }
+    if (userName) {
+      url.searchParams.append('user_name', userName);
+    }
+    
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        user_id: userId, // ✅ Valid user ID from database
+        title: issue.title,
+        description: description,
+        status: 'Open',
+        priority: issue.priority || 'Medium',
+      }),
+    });
+    if (!response.ok) {
+      const errorData = await response.text();
+      console.error('Ticket creation failed:', errorData);
+      throw new Error(`Failed to create ticket: ${errorData}`);
+    }
+    return await response.json();
+  } catch (error) {
+    console.error('Error creating ticket:', error);
+    throw error;
+  }
 };
-const deleteIssueAPI = async (issueId) => {
-  await simulateApiDelay();
-  const idx = mockIssues.findIndex((i) => i.id === issueId);
-  if (idx > -1) mockIssues.splice(idx, 1);
+
+const deleteIssueAPI = async (issueId) => { 
+  try {
+    const response = await fetch(`http://localhost:8000/tickets/${issueId}`, {
+      method: 'DELETE',
+    });
+    if (!response.ok) {
+      throw new Error('Failed to delete ticket');
+    }
+  } catch (error) {
+    console.error('Error deleting ticket:', error);
+    throw error;
+  }
 };
-const updateIssueAPI = async (updatedIssue) => {
-  await simulateApiDelay();
-  const idx = mockIssues.findIndex((i) => i.id === updatedIssue.id);
-  if (idx > -1) mockIssues[idx] = { ...mockIssues[idx], ...updatedIssue };
+
+const updateIssueAPI = async (updatedIssue) => { 
+  try {
+    // Map frontend statuses to backend statuses
+    let backendStatus = updatedIssue.status;
+    if (updatedIssue.status === 'backlog') {
+      backendStatus = 'Open';
+    } else if (updatedIssue.status === 'todo') {
+      backendStatus = 'Todo';
+    } else if (updatedIssue.status === 'analysis') {
+      backendStatus = 'Analysis';
+    } else if (updatedIssue.status === 'inprogress') {
+      backendStatus = 'In Progress';
+    } else if (updatedIssue.status === 'blocked') {
+      backendStatus = 'Blocked';
+    } else if (updatedIssue.status === 'code review') {
+      backendStatus = 'Code review';
+    } else if (updatedIssue.status === 'qa') {
+      backendStatus = 'QA';
+    } else if (updatedIssue.status === 'done') {
+      backendStatus = 'Done';
+    } else {
+      // Default: capitalize first letter
+      backendStatus = updatedIssue.status.charAt(0).toUpperCase() + updatedIssue.status.slice(1);
+    }
+    
+    // Preserve epic information in description
+    let description = updatedIssue.description || '';
+    if (updatedIssue.epic && updatedIssue.epicName) {
+      const epicInfo = `[EPIC:${updatedIssue.epic}:${updatedIssue.epicName}]`;
+      // Remove existing epic info if present
+      description = description.replace(/\[EPIC:[^\]]+\]\s*/, '');
+      // Add new epic info
+      description = `${epicInfo} ${description}`.trim();
+    }
+    
+    const response = await fetch(`http://localhost:8000/tickets/${updatedIssue.id}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        title: updatedIssue.title,
+        description: description,
+        status: backendStatus,
+        priority: updatedIssue.priority,
+      }),
+    });
+    if (!response.ok) {
+      throw new Error('Failed to update ticket');
+    }
+    return await response.json();
+  } catch (error) {
+    console.error('Error updating ticket:', error);
+    throw error;
+  }
 };
 
 const getSwimlanes = (issues, epics) =>
-  epics.map((epic) => {
-    const epicIssues = issues.filter(
-      (i) => (i.epic || i.projectId) === epic.id,
-    );
+  epics.map(epic => {
+    const epicIssues = issues.filter(i => (i.epic || i.projectId) === epic.id);
     return { id: epic.id, title: epic.name, issues: epicIssues };
   });
 
+const getProjectName = (projectId, epics) => {
+  const project = epics.find(p => p.id === projectId);
+  return project ? project.name : 'Untitled Project';
+};
+
 export default function KanbanBoard() {
-  const { projectId } = useParams();
+  const { name } = useParams();
+  const { user } = useAuth(); // Get logged-in user for admin tracking
   const [issues, setIssues] = useState([]);
   const [epics, setEpics] = useState([]);
-  const [projectName, setProjectName] = useState("");
+  const [projects, setProjects] = useState([]);
+  const [currentProject, setCurrentProject] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [isMobile, setIsMobile] = useState(false);
   const [openSwimlanes, setOpenSwimlanes] = useState({});
   const [customTitles, setCustomTitles] = useState({});
   const [createLaneId, setCreateLaneId] = useState(null);
-  const [newTaskText, setNewTaskText] = useState("");
-  const [newTaskType, setNewTaskType] = useState("Task");
+  const [newTaskText, setNewTaskText] = useState('');
+  const [newTaskType, setNewTaskType] = useState('Task');
   const [selectedIssue, setSelectedIssue] = useState(null);
   const [editIssue, setEditIssue] = useState(null);
   const [showCreateEpic, setShowCreateEpic] = useState(false);
   const [showDeleteEpic, setShowDeleteEpic] = useState(false);
-  const [newEpicName, setNewEpicName] = useState("");
-  const [epicToDelete, setEpicToDelete] = useState("");
+  const [newEpicName, setNewEpicName] = useState('');
+  const [epicToDelete, setEpicToDelete] = useState('');
+  const [selectedProjectForEpic, setSelectedProjectForEpic] = useState(null);
   const [columnsByLane, setColumnsByLane] = useState({});
-  const [columnModal, setColumnModal] = useState(null);
-  const [columnInput, setColumnInput] = useState("");
-  const [hoveredAssigneeId, setHoveredAssigneeId] = useState(null);
-  const [modalPosition, setModalPosition] = useState({ top: 0, left: 0 });
-  const [isMobile, setIsMobile] = useState(false);
-  const [activeSwimlane, setActiveSwimlane] = useState(null);
-
-  // State to store selected profile file
   const [profileFile, setProfileFile] = useState(null);
+  const [hoveredAssigneeId, setHoveredAssigneeId] = useState(null);
 
   // Handler for file input changes
   const handleNewUserChange = (event) => {
@@ -2113,57 +493,113 @@ export default function KanbanBoard() {
     setProfileFile(file);
   };
 
-  // Draggable modal state
-  const [modalDrag, setModalDrag] = useState({
-    isDragging: false,
-    position: { x: 0, y: 0 },
-    startPosition: { x: 0, y: 0 },
-  });
-  const modalRef = useRef(null);
-
   // Subtask management
-  const [newSubtaskText, setNewSubtaskText] = useState("");
+  const [newSubtaskText, setNewSubtaskText] = useState('');
 
   useEffect(() => {
     const checkScreenSize = () => {
       setIsMobile(window.innerWidth < 768);
     };
     checkScreenSize();
-    window.addEventListener("resize", checkScreenSize);
-    return () => window.removeEventListener("resize", checkScreenSize);
+    window.addEventListener('resize', checkScreenSize);
+    return () => window.removeEventListener('resize', checkScreenSize);
   }, []);
 
   useEffect(() => {
-    const fetchData = async () => {
+    const loadData = async () => {
       try {
-        const projectNameData = projectId
-          ? await getProjectName(projectId)
-          : "All Projects";
-        const [issuesData, epicsData] = await Promise.all([
-          listIssues(projectId),
-          listEpics(),
-        ]);
+        setLoading(true);
+        
+        // First, load all projects
+        const projectsData = await listProjects();
+        setProjects(projectsData);
+        
+        // Get current user email
+        const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+        const userEmail = currentUser.email;
+        
+        console.log('User portal: Current user email:', userEmail);
+        console.log('User portal: Available projects:', projectsData.map(p => ({ name: p.name, leads: p.leads })));
+        
+        // Find ALL projects where the user is a lead (not just one!)
+        let userProjects = [];
+        if (userEmail) {
+          userProjects = projectsData.filter(p => 
+            p.leads && p.leads.toLowerCase().includes(userEmail.toLowerCase())
+          );
+          console.log('User portal: User is assigned to', userProjects.length, 'projects:', userProjects.map(p => p.name));
+        }
+        
+        // Set first project as current (for display name), but load data from ALL projects
+        const project = userProjects.length > 0 ? userProjects[0] : null;
+        setCurrentProject(project);
+        
+        let issuesData, epicsData;
+        
+        // Load epics and tickets from ALL projects the user is assigned to
+        if (userProjects.length > 0) {
+          // Load ALL epics and tickets from ALL user's projects
+          console.log('User portal: Loading data from ALL assigned projects');
+          [issuesData, epicsData] = await Promise.all([
+            listIssues(null), // null = fetch ALL tickets
+            listEpics()       // Fetch ALL epics
+          ]);
+          
+          // Filter to only show epics and tickets from user's assigned projects
+          const userProjectIds = userProjects.map(p => p.id);
+          console.log('User portal: User project IDs:', userProjectIds);
+          console.log('User portal: Total epics fetched:', epicsData.length);
+          console.log('User portal: Epic details BEFORE filtering:', epicsData.map(e => ({ id: e.id, name: e.name, projectId: e.projectId })));
+          
+          // Filter epics to only those belonging to user's projects
+          const filteredEpics = epicsData.filter(epic => {
+            const hasProjectId = epic.projectId !== undefined && epic.projectId !== null;
+            const isInUserProjects = hasProjectId && userProjectIds.includes(epic.projectId);
+            console.log(`User portal: Epic '${epic.name}' (id: ${epic.id}, projectId: ${epic.projectId}) - hasProjectId: ${hasProjectId}, isInUserProjects: ${isInUserProjects}`);
+            return isInUserProjects;
+          });
+          epicsData = filteredEpics;
+          console.log('User portal: Filtered to', epicsData.length, 'epics from user projects:', epicsData.map(e => e.name));
+          
+          // Filter tickets to only those belonging to user's project epics
+          const userEpicIds = epicsData.map(e => e.id);
+          issuesData = issuesData.filter(ticket => 
+            ticket.epic && userEpicIds.includes(ticket.epic)
+          );
+          console.log('User portal: Filtered to', issuesData.length, 'tickets from user epics');
+        } else {
+          // If no projects assigned, show empty
+          console.log('User portal: No projects assigned to user');
+          issuesData = [];
+          epicsData = [];
+        }
+        
         setIssues(issuesData);
         setEpics(epicsData);
-        setProjectName(projectNameData);
-        const lanes = getSwimlanes(issuesData, epicsData);
-        const initialOpen = {},
-          initialTitles = {},
-          initialCols = {};
-        lanes.forEach((lane) => {
-          initialOpen[lane.id] = true;
-          initialTitles[lane.id] = lane.title;
-          initialCols[lane.id] = defaultStatuses.slice();
+        
+        // Initialize open swimlanes and custom titles
+        const initialOpenSwimlanes = {};
+        const initialCustomTitles = {};
+        const initialColumnsByLane = {};
+        
+        epicsData.forEach(epic => {
+          initialOpenSwimlanes[epic.id] = true;
+          initialCustomTitles[epic.id] = epic.name;
+          initialColumnsByLane[epic.id] = defaultStatuses.slice();
         });
-        setOpenSwimlanes(initialOpen);
-        setCustomTitles(initialTitles);
-        setColumnsByLane(initialCols);
-      } catch (err) {
-        console.error(err);
+        
+        setOpenSwimlanes(initialOpenSwimlanes);
+        setCustomTitles(initialCustomTitles);
+        setColumnsByLane(initialColumnsByLane);
+      } catch (error) {
+        console.error('Error loading data:', error);
+      } finally {
+        setLoading(false);
       }
     };
-    fetchData();
-  }, [projectId]);
+
+    loadData();
+  }, [name]);
 
   // Subtask functions
   const addSubtask = () => {
@@ -2172,65 +608,53 @@ export default function KanbanBoard() {
     const newSubtask = {
       id: `st${Date.now()}`,
       title: newSubtaskText.trim(),
-      completed: false,
+      completed: false
     };
 
-    setEditIssue((prev) => ({
+    setEditIssue(prev => ({
       ...prev,
-      subtasks: [...(prev.subtasks || []), newSubtask],
+      subtasks: [...(prev.subtasks || []), newSubtask]
     }));
 
-    setNewSubtaskText("");
+    setNewSubtaskText('');
+  };
+
+  const removeSubtask = (subtaskId) => {
+    setEditIssue(prev => ({
+      ...prev,
+      subtasks: (prev.subtasks || []).filter(st => st.id !== subtaskId)
+    }));
   };
 
   const toggleSubtask = (subtaskId) => {
-    setEditIssue((prev) => ({
+    setEditIssue(prev => ({
       ...prev,
-      subtasks: prev.subtasks.map((subtask) =>
-        subtask.id === subtaskId
-          ? { ...subtask, completed: !subtask.completed }
-          : subtask,
-      ),
-    }));
-  };
-
-  const deleteSubtask = (subtaskId) => {
-    setEditIssue((prev) => ({
-      ...prev,
-      subtasks: prev.subtasks.filter((subtask) => subtask.id !== subtaskId),
+      subtasks: (prev.subtasks || []).map(st =>
+        st.id === subtaskId ? { ...st, completed: !st.completed } : st
+      )
     }));
   };
 
   const handleSubtaskKeyPress = (e) => {
-    if (e.key === "Enter") {
+    if (e.key === 'Enter') {
       e.preventDefault();
       addSubtask();
     }
   };
 
-  // Draggable modal functions
+  // Modal drag functionality
+  const [modalDrag, setModalDrag] = useState({
+    isDragging: false,
+    startPosition: { x: 0, y: 0 },
+    position: { x: 0, y: 0 }
+  });
+
   const handleModalMouseDown = (e) => {
-    if (isMobile) return; // Disable dragging on mobile
-
-    // Only start dragging if clicking on the header (not on buttons or inputs)
-    if (
-      e.target.closest(".modal-close-btn") ||
-      e.target.closest("input") ||
-      e.target.closest("select") ||
-      e.target.closest("textarea") ||
-      e.target.closest("button") ||
-      e.target.closest(".subtask-item")
-    ) {
-      return;
-    }
-
+    if (isMobile) return;
     setModalDrag({
       isDragging: true,
-      position: modalDrag.position,
-      startPosition: {
-        x: e.clientX - modalDrag.position.x,
-        y: e.clientY - modalDrag.position.y,
-      },
+      startPosition: { x: e.clientX - modalDrag.position.x, y: e.clientY - modalDrag.position.y },
+      position: modalDrag.position
     });
   };
 
@@ -2240,1985 +664,1199 @@ export default function KanbanBoard() {
     const newX = e.clientX - modalDrag.startPosition.x;
     const newY = e.clientY - modalDrag.startPosition.y;
 
-    setModalDrag((prev) => ({
+    setModalDrag(prev => ({
       ...prev,
-      position: { x: newX, y: newY },
+      position: { x: newX, y: newY }
     }));
   };
 
   const handleModalMouseUp = () => {
-    if (isMobile) return;
-    setModalDrag((prev) => ({ ...prev, isDragging: false }));
+    setModalDrag(prev => ({ ...prev, isDragging: false }));
   };
-
-  // Reset modal position when closed
-  useEffect(() => {
-    if (!selectedIssue) {
-      setModalDrag({
-        isDragging: false,
-        position: { x: 0, y: 0 },
-        startPosition: { x: 0, y: 0 },
-      });
-    }
-  }, [selectedIssue]);
 
   // Add event listeners for dragging
   useEffect(() => {
     if (modalDrag.isDragging) {
-      document.addEventListener("mousemove", handleModalMouseMove);
-      document.addEventListener("mouseup", handleModalMouseUp);
-      document.body.style.cursor = "grabbing";
-      document.body.style.userSelect = "none";
+      document.addEventListener('mousemove', handleModalMouseMove);
+      document.addEventListener('mouseup', handleModalMouseUp);
+      document.body.style.cursor = 'grabbing';
+      document.body.style.userSelect = 'none';
     } else {
-      document.removeEventListener("mousemove", handleModalMouseMove);
-      document.removeEventListener("mouseup", handleModalMouseUp);
-      document.body.style.cursor = "";
-      document.body.style.userSelect = "";
+      document.body.style.cursor = 'default';
+      document.body.style.userSelect = 'auto';
     }
 
     return () => {
-      document.removeEventListener("mousemove", handleModalMouseMove);
-      document.removeEventListener("mouseup", handleModalMouseUp);
-      document.body.style.cursor = "";
-      document.body.style.userSelect = "";
+      document.removeEventListener('mousemove', handleModalMouseMove);
+      document.removeEventListener('mouseup', handleModalMouseUp);
+      document.body.style.cursor = 'default';
+      document.body.style.userSelect = 'auto';
     };
   }, [modalDrag.isDragging]);
 
   const openAddColumnModal = (e, laneId, colIndex) => {
     const rect = e.currentTarget.getBoundingClientRect();
-    setModalPosition({
-      top: rect.bottom + window.scrollY + 8,
-      left: rect.left + window.scrollX,
-    });
-    setColumnModal({ laneId, colIndex, type: "add" });
-    setColumnInput("");
+    setModalPosition({ top: rect.bottom + window.scrollY + 8, left: rect.left + window.scrollX });
+    setColumnModal({ laneId, colIndex, type: 'add' });
+    setColumnInput('');
   };
+
   const openEditColumnModal = (e, laneId, colIndex, status) => {
     const rect = e.currentTarget.getBoundingClientRect();
-    setModalPosition({
-      top: rect.bottom + window.scrollY + 8,
-      left: rect.left + window.scrollX,
-    });
-    setColumnModal({ laneId, colIndex, type: "menu" });
+    setModalPosition({ top: rect.bottom + window.scrollY + 8, left: rect.left + window.scrollX });
+    setColumnModal({ laneId, colIndex, type: 'menu', status });
     setColumnInput(status);
   };
+
   const handleAddColumn = () => {
     const name = columnInput.trim();
-    if (!name) return alert("Column name is required");
-    setColumnsByLane((prev) => {
-      const cols = [...prev[columnModal.laneId]];
-      if (cols.includes(name.toLowerCase()))
-        alert("Column name already exists");
-      else cols.splice(columnModal.colIndex + 1, 0, name.toLowerCase());
-      return { ...prev, [columnModal.laneId]: cols };
+    if (!name) return alert('Column name is required');
+
+    setColumnsByLane(prev => {
+      const newColumns = [...(prev[columnModal.laneId] || [])];
+      newColumns.splice(columnModal.colIndex + 1, 0, name.toLowerCase().replace(/\s+/g, ''));
+      return { ...prev, [columnModal.laneId]: newColumns };
     });
+
     setColumnModal(null);
-    setColumnInput("");
+    setColumnInput('');
   };
-  const handleEditColumn = () => {
-    const name = columnInput.trim();
-    if (!name) return alert("Column name is required");
-    const { laneId, colIndex } = columnModal;
-    const oldCol = columnsByLane[laneId][colIndex];
-    if (
-      columnsByLane[laneId].includes(name.toLowerCase()) &&
-      name.toLowerCase() !== oldCol
-    ) {
-      alert("Column name already exists");
-      return;
-    }
-    setColumnsByLane((prev) => {
-      const cols = [...prev[laneId]];
-      cols[colIndex] = name.toLowerCase();
-      return { ...prev, [laneId]: cols };
-    });
-    const updatedIssues = issues.map((issue) =>
-      (issue.epic || issue.projectId) === laneId && issue.status === oldCol
-        ? { ...issue, status: name.toLowerCase() }
-        : issue,
-    );
-    setIssues(updatedIssues);
-    setColumnModal(null);
-    setColumnInput("");
-  };
+
   const handleDeleteColumn = () => {
-    const { laneId, colIndex } = columnModal;
-    const removedCol = columnsByLane[laneId][colIndex];
-    setColumnsByLane((prev) => {
-      const cols = [...prev[laneId]];
-      cols.splice(colIndex, 1);
-      return { ...prev, [laneId]: cols };
+    if (columnsByLane[columnModal.laneId].length <= 1) {
+      return alert('Cannot delete the last column');
+    }
+
+    setColumnsByLane(prev => {
+      const newColumns = [...(prev[columnModal.laneId] || [])];
+      newColumns.splice(columnModal.colIndex, 1);
+      return { ...prev, [columnModal.laneId]: newColumns };
     });
-    const updatedIssues = issues.map((issue) =>
-      (issue.epic || issue.projectId) === laneId && issue.status === removedCol
-        ? { ...issue, status: "backlog" }
-        : issue,
-    );
-    setIssues(updatedIssues);
+
     setColumnModal(null);
-    setColumnInput("");
+    setColumnInput('');
   };
-  const toggleSwimlane = (id) =>
-    setOpenSwimlanes((prev) => ({ ...prev, [id]: !prev[id] }));
-  const byStatus = (collection, status) =>
-    collection.filter((i) => i.status === status);
 
-  const onDragStart = (e, issueId) =>
-    e.dataTransfer.setData("text/plain", issueId);
-  const onDrop = async (e, targetStatus, swimlaneId) => {
-    e.preventDefault();
-    try {
-      const issueId = e.dataTransfer.getData("text/plain");
-      const issue = issues.find((i) => i.id === issueId);
-      const srcLaneId = issue.epic || issue.projectId;
-      if (srcLaneId === swimlaneId && issue.status !== targetStatus) {
-        await moveIssue(issueId, targetStatus);
-        const refreshed = await listIssues(projectId);
-        setIssues(refreshed);
-      }
-    } catch (err) {
-      console.error(err);
-    }
-  };
-  const onDragOver = (e) => e.preventDefault();
+  const handleRenameColumn = () => {
+    const name = columnInput.trim();
+    if (!name) return alert('Column name is required');
 
-  const handleCreateClick = (laneId) => {
-    setCreateLaneId(laneId);
-    setNewTaskText("");
-    setNewTaskType("Task");
+    setColumnsByLane(prev => {
+      const newColumns = [...(prev[columnModal.laneId] || [])];
+      newColumns[columnModal.colIndex] = name.toLowerCase().replace(/\s+/g, '');
+      return { ...prev, [columnModal.laneId]: newColumns };
+    });
+
+    setColumnModal(null);
+    setColumnInput('');
   };
-  const handleCreateSubmit = async (lane) => {
-    if (!newTaskText.trim()) {
-      alert("Task title is required");
-      return;
-    }
+
+  const [columnModal, setColumnModal] = useState(null);
+  const [columnInput, setColumnInput] = useState('');
+  const [modalPosition, setModalPosition] = useState({ top: 0, left: 0 });
+
+  const onDragStart = (e, issue) => {
+    e.dataTransfer.setData('text/plain', issue.id);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const onDragOver = e => e.preventDefault();
+
+  const handleCreateClick = laneId => { setCreateLaneId(laneId); setNewTaskText(''); setNewTaskType('Task'); };
+  const handleCreateSubmit = async lane => {
+    if (!newTaskText.trim()) { alert('Task title is required'); return; }
     const newIssue = {
       id: Math.random().toString(36).slice(2),
       epic: lane.id,
       projectId: lane.id,
       epicName: lane.title,
       title: newTaskText,
-      status: "backlog",
-      assignee: "",
+      status: 'backlog',
+      assignee: '',
       type: newTaskType,
-      storyPoints: "",
+      storyPoints: '',
       labels: [],
-      dueDate: "",
-      reporter: "system",
-      priority: "Medium",
-      startDate: new Date().toISOString().split("T")[0],
-      description: "",
+      dueDate: '',
+      reporter: 'system',
+      priority: 'Medium',
+      startDate: new Date().toISOString().split('T')[0],
+      description: '',
       subtasks: [],
-      comments: "",
+      comments: ''
     };
     try {
-      await createIssueAPI(newIssue);
-      const refreshed = await listIssues(projectId);
+      await createIssueAPI(newIssue, currentProject?.id, user?.email);
+      const refreshed = await listIssues(currentProject ? currentProject.id : null);
       setIssues(refreshed);
       setCreateLaneId(null);
-    } catch (err) {
-      console.error(err);
-    }
+    } catch (err) { console.error(err); }
   };
 
-  const handleOpenModal = (issue) => {
+  const handleIssueClick = (issue) => {
     setSelectedIssue(issue);
     setEditIssue({ ...issue });
-    setNewSubtaskText("");
+    setNewSubtaskText('');
     // Reset position when opening new modal
     setModalDrag({
       isDragging: false,
-      position: { x: 0, y: 0 },
       startPosition: { x: 0, y: 0 },
+      position: { x: 0, y: 0 }
     });
   };
-  const handleUpdateField = (field, value) => {
-    setEditIssue((prev) => ({ ...prev, [field]: value }));
-  };
+
   const handleSave = async () => {
-    await updateIssueAPI(editIssue);
-    const refreshed = await listIssues(projectId);
-    setIssues(refreshed);
-    setSelectedIssue(null);
-    setEditIssue(null);
+    try {
+      await updateIssueAPI(editIssue);
+      const refreshed = await listIssues(currentProject ? currentProject.id : null);
+      setIssues(refreshed);
+      setSelectedIssue(null);
+      setEditIssue(null);
+    } catch (err) {
+      console.error('Error saving issue:', err);
+    }
   };
-  const handleReset = () => {
-    setEditIssue({ ...selectedIssue });
-  };
+
+  const handleReset = () => { setEditIssue({ ...selectedIssue }); };
 
   const handleCreateEpic = async () => {
     if (!newEpicName.trim()) {
-      alert("Epic name is required");
+      alert('Epic name is required');
+      return;
+    }
+    if (!selectedProjectForEpic) {
+      alert('Please select a project for this epic.');
       return;
     }
     try {
-      await createEpicAPI(newEpicName);
-      const updatedEpics = await listEpics();
-      setEpics(updatedEpics);
-      setNewEpicName("");
+      await createEpicAPI(newEpicName, selectedProjectForEpic.id, user?.email);
+      // Refresh ALL epics and issues to ensure new epic appears
+      const [updatedEpics, updatedIssues] = await Promise.all([
+        listEpics(), // Fetch ALL epics
+        listIssues(null) // Fetch ALL tickets
+      ]);
+      
+      // Filter to user's projects
+      const userProjects = projects.filter(p => 
+        p.leads && p.leads.toLowerCase().includes(user?.email?.toLowerCase())
+      );
+      const userProjectIds = userProjects.map(p => p.id);
+      
+      const filteredEpics = updatedEpics.filter(epic => 
+        epic.projectId && userProjectIds.includes(epic.projectId)
+      );
+      const userEpicIds = filteredEpics.map(e => e.id);
+      const filteredIssues = updatedIssues.filter(ticket => 
+        ticket.epic && userEpicIds.includes(ticket.epic)
+      );
+      
+      console.log('Updated epics after creation:', filteredEpics);
+      
+      setEpics(filteredEpics);
+      setIssues(filteredIssues);
+      
+      // Initialize board structure for all epics (including new ones)
+      const newOpenSwimlanes = {};
+      const newCustomTitles = {};
+      const newColumnsByLane = {};
+      
+      updatedEpics.forEach(epic => {
+        newOpenSwimlanes[epic.id] = openSwimlanes[epic.id] !== undefined ? openSwimlanes[epic.id] : true;
+        newCustomTitles[epic.id] = customTitles[epic.id] || epic.name;
+        newColumnsByLane[epic.id] = columnsByLane[epic.id] || defaultStatuses.slice();
+        console.log(`Initialized epic ${epic.id} (${epic.name}) with ${newColumnsByLane[epic.id].length} columns`);
+      });
+      
+      console.log('New openSwimlanes:', newOpenSwimlanes);
+      console.log('New columnsByLane:', newColumnsByLane);
+      
+      setOpenSwimlanes(newOpenSwimlanes);
+      setCustomTitles(newCustomTitles);
+      setColumnsByLane(newColumnsByLane);
+      
+      setNewEpicName('');
+      setSelectedProjectForEpic(null);
       setShowCreateEpic(false);
-      const newEpic = updatedEpics[updatedEpics.length - 1];
-      setOpenSwimlanes((prev) => ({ ...prev, [newEpic.id]: true }));
-      setCustomTitles((prev) => ({ ...prev, [newEpic.id]: newEpic.name }));
-      setColumnsByLane((prev) => ({
-        ...prev,
-        [newEpic.id]: defaultStatuses.slice(),
-      }));
     } catch (error) {
-      console.error("Error creating epic:", error);
+      console.error('Error creating epic:', error);
     }
   };
 
   const handleDeleteEpic = async () => {
     if (!epicToDelete) {
-      alert("Please select an epic to delete");
-      return;
-    }
-    if (
-      !window.confirm(
-        `Are you sure you want to delete the epic "${epics.find((e) => e.id === epicToDelete)?.name}"? This will also delete all issues in this epic.`,
-      )
-    ) {
+      alert('Please select an epic to delete');
       return;
     }
     try {
       await deleteEpicAPI(epicToDelete);
-      const [refreshedIssues, refreshedEpics] = await Promise.all([
-        listIssues(projectId),
-        listEpics(),
+      // Refresh both epics and issues after deletion
+      const [updatedEpics, updatedIssues] = await Promise.all([
+        listEpics(currentProject ? currentProject.id : null),
+        listIssues(currentProject ? currentProject.id : null)
       ]);
-      setIssues(refreshedIssues);
-      setEpics(refreshedEpics);
-      setEpicToDelete("");
+      setEpics(updatedEpics);
+      setIssues(updatedIssues);
+      setEpicToDelete('');
       setShowDeleteEpic(false);
-      setColumnsByLane((prev) => {
-        const copy = { ...prev };
-        delete copy[epicToDelete];
-        return copy;
+      // Remove from open swimlanes and custom titles
+      setOpenSwimlanes(prev => {
+        const newOpenSwimlanes = { ...prev };
+        delete newOpenSwimlanes[epicToDelete];
+        return newOpenSwimlanes;
       });
-      setOpenSwimlanes((prev) => {
-        const copy = { ...prev };
-        delete copy[epicToDelete];
-        return copy;
+      setCustomTitles(prev => {
+        const newCustomTitles = { ...prev };
+        delete newCustomTitles[epicToDelete];
+        return newCustomTitles;
       });
-      setCustomTitles((prev) => {
-        const copy = { ...prev };
-        delete copy[epicToDelete];
-        return copy;
+      setColumnsByLane(prev => {
+        const newColumnsByLane = { ...prev };
+        delete newColumnsByLane[epicToDelete];
+        return newColumnsByLane;
       });
     } catch (error) {
-      console.error("Error deleting epic:", error);
+      console.error('Error deleting epic:', error);
     }
   };
 
-  const toggleMobileSwimlane = (laneId) => {
-    if (activeSwimlane === laneId) {
-      setActiveSwimlane(null);
-    } else {
-      setActiveSwimlane(laneId);
+  const handleDeleteIssue = async () => {
+    if (!selectedIssue) return;
+    try {
+      await deleteIssueAPI(selectedIssue.id);
+      const refreshed = await listIssues(currentProject ? currentProject.id : null);
+      setIssues(refreshed);
+      setSelectedIssue(null);
+      setEditIssue(null);
+    } catch (err) {
+      console.error('Error deleting issue:', err);
     }
   };
+
+  const onDrop = async (e, status, laneId) => {
+    e.preventDefault();
+    const issueId = e.dataTransfer.getData('text/plain');
+    const issue = issues.find(i => i.id === issueId);
+    if (issue && issue.status !== status) {
+      try {
+        await moveIssue(issueId, status);
+        const refreshed = await listIssues(currentProject ? currentProject.id : null);
+        setIssues(refreshed);
+      } catch (err) {
+        console.error('Error moving issue:', err);
+      }
+    }
+  };
+
+  const byStatus = (collection, status) => collection.filter(i => i.status === status);
+
+  const toggleSwimlane = (laneId) => {
+    setOpenSwimlanes(prev => ({ ...prev, [laneId]: !prev[laneId] }));
+  };
+
+  const updateCustomTitle = (laneId, newTitle) => {
+    setCustomTitles(prev => ({ ...prev, [laneId]: newTitle }));
+  };
+
+  if (loading) {
+    return (
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'center', 
+        alignItems: 'center', 
+        height: '100vh',
+        fontSize: '18px',
+        color: '#666'
+      }}>
+        Loading board...
+      </div>
+    );
+  }
 
   const swimlanes = getSwimlanes(issues, epics);
 
-  // Calculate subtask progress
-  const getSubtaskProgress = (subtasks) => {
-    if (!subtasks || subtasks.length === 0)
-      return { completed: 0, total: 0, percentage: 0 };
-    const completed = subtasks.filter((st) => st.completed).length;
-    const total = subtasks.length;
-    const percentage = total > 0 ? Math.round((completed / total) * 100) : 0;
-    return { completed, total, percentage };
-  };
-
   return (
-    <div
-      className="board-wrap"
-      style={{
-        margin: 0,
-        padding: 0,
-        maxWidth: "100vw",
-        minHeight: "100vh",
-        background: "#19a0f7", // makes Kanban flush with browser edge
-        overflowX: "auto",
-      }}
-    >
-      {/* Project Name Header */}
-      <div
-        className="project-header"
-        style={{
-          background: "#dbeafe",
-          borderRadius: 8,
-          padding: "20px 0px", // zero left/right
-          margin: 0,
-          marginBottom: 20,
-        }}
-      >
-        <h1 className="project-title">{projectName}</h1>
-        <div className="project-stats">
-          <span className="project-stat">{epics.length} Epics</span>
-          <span className="project-stat">{issues.length} Issues</span>
-          <span className="project-stat">
-            {issues.filter((issue) => issue.status === "done").length} Completed
-          </span>
+    <div className="board-wrap">
+      {/* Epic management buttons */}
+      <div className="epic-management-section">
+        {currentProject && (
+          <p style={{
+            fontSize: '16px',
+            color: '#5e6c84',
+            margin: '0 0 20px 0',
+            fontWeight: '500'
+          }}>
+            {projects.filter(p => p.leads && p.leads.toLowerCase().includes(user?.email?.toLowerCase())).length > 1 
+              ? `Showing all your projects (${projects.filter(p => p.leads && p.leads.toLowerCase().includes(user?.email?.toLowerCase())).length})` 
+              : `${currentProject.name} Board`}
+          </p>
+        )}
+        <div className="epic-buttons-container">
+          <button className="create-epic-btn" onClick={() => { setShowCreateEpic(true); setShowDeleteEpic(false); }}>+ Create Epic</button>
+          <button className="delete-epic-btn" onClick={() => { setShowDeleteEpic(true); setShowCreateEpic(false); }}>🗑 Delete Epic</button>
         </div>
+
+        {/* Create Epic Modal */}
+        {showCreateEpic && (
+          <div className="epic-modal-overlay" onClick={() => setShowCreateEpic(false)}>
+            <div className="epic-modal" onClick={e => e.stopPropagation()}>
+              <div className="epic-modal-content">
+                <h3>Create New Epic</h3>
+                <input type="text" placeholder="Enter epic name" value={newEpicName} onChange={(e) => setNewEpicName(e.target.value)} className="epic-modal-input" autoFocus />
+                <select 
+                  value={selectedProjectForEpic?.id || ''} 
+                  onChange={(e) => {
+                    const project = projects.find(p => p.id == e.target.value);
+                    setSelectedProjectForEpic(project);
+                  }} 
+                  className="epic-modal-select"
+                  style={{ marginTop: '10px' }}
+                >
+                  <option value="">Select Project...</option>
+                  {projects.filter(p => p.leads && p.leads.toLowerCase().includes(user?.email?.toLowerCase())).map(project => (
+                    <option key={project.id} value={project.id}>{project.name}</option>
+                  ))}
+                </select>
+                <div className="epic-modal-actions">
+                  <button className="btn-cancel" onClick={() => { setShowCreateEpic(false); setNewEpicName(''); setSelectedProjectForEpic(null); }}>Cancel</button>
+                  <button className="btn-create" onClick={handleCreateEpic}>Create Epic</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Delete Epic Modal */}
+        {showDeleteEpic && (
+          <div className="epic-modal-overlay" onClick={() => setShowDeleteEpic(false)}>
+            <div className="epic-modal" onClick={e => e.stopPropagation()}>
+              <div className="epic-modal-content">
+                <h3>Delete Epic</h3>
+                <p className="delete-warning">Select an epic to delete. This will also delete all issues in the epic.</p>
+                <select value={epicToDelete} onChange={(e) => setEpicToDelete(e.target.value)} className="epic-modal-select">
+                  <option value="">Select an epic...</option>
+                  {epics.map(epic => (
+                    <option key={epic.id} value={epic.id}>{epic.name} ({swimlanes.find(s => s.id === epic.id)?.issues.length || 0} issues)</option>
+                  ))}
+                </select>
+                <div className="epic-modal-actions">
+                  <button className="btn-cancel" onClick={() => { setShowDeleteEpic(false); setEpicToDelete(''); }}>Cancel</button>
+                  <button className="btn-delete" onClick={handleDeleteEpic} disabled={!epicToDelete}>Delete Epic</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
-      {isMobile && (
-        <div className="mobile-swimlane-selector">
-          <select
-            value={activeSwimlane || ""}
-            onChange={(e) => setActiveSwimlane(e.target.value || null)}
-            className="mobile-select"
-          >
-            <option value="">All Swimlanes</option>
-            {swimlanes.map((lane) => (
-              <option key={lane.id} value={lane.id}>
-                {customTitles[lane.id] || lane.title}
-              </option>
-            ))}
-          </select>
-        </div>
-      )}
-
-      {swimlanes.map((lane) => {
-        const isOpen = isMobile
-          ? activeSwimlane === null || activeSwimlane === lane.id
-          : openSwimlanes[lane.id];
+      {/* Swimlanes and columns */}
+      {swimlanes.map(lane => {
+        const isOpen = openSwimlanes[lane.id];
         const statuses = columnsByLane[lane.id] || defaultStatuses;
-
-        if (isMobile && activeSwimlane && activeSwimlane !== lane.id) {
-          return null;
-        }
-
+        // Find the epic to get project name
+        const epic = epics.find(e => e.id === lane.id);
+        const epicProject = epic?.projectId ? projects.find(p => p.id === epic.projectId) : null;
+        
         return (
           <section className="swimlane" key={lane.id}>
             <header className="swimlane-header">
-              {!isMobile && (
-                <button
-                  className="swimlane-toggle"
-                  onClick={() => toggleSwimlane(lane.id)}
-                >
-                  {isOpen ? "▼" : "▶"}
-                </button>
-              )}
+              <button className="swimlane-toggle" onClick={() => toggleSwimlane(lane.id)}>{isOpen ? '▼' : '▶'}</button>
               <span className="swimlane-icon">⚡</span>
-              <input
-                className="swimlane-title-input"
-                value={customTitles[lane.id] || ""}
-                onChange={(e) =>
-                  setCustomTitles((prev) => ({
-                    ...prev,
-                    [lane.id]: e.target.value,
-                  }))
-                }
-              />
-              <span className="swimlane-count">
-                {lane.issues.length} work items
-              </span>
-              {isMobile && (
-                <button
-                  className="mobile-swimlane-toggle"
-                  onClick={() => toggleMobileSwimlane(lane.id)}
-                >
-                  {activeSwimlane === lane.id ? "▲" : "▼"}
-                </button>
+              <input className="swimlane-title-input" value={customTitles[lane.id] || ''} onChange={e => setCustomTitles(prev => ({ ...prev, [lane.id]: e.target.value }))} />
+              {epicProject && (
+                <span style={{
+                  fontSize: '12px',
+                  color: '#5e6c84',
+                  background: '#f0f9ff',
+                  padding: '2px 8px',
+                  borderRadius: '4px',
+                  marginRight: '8px',
+                  fontWeight: '500'
+                }}>
+                  📁 {epicProject.name}
+                </span>
               )}
+              <span className="swimlane-count">{lane.issues.length} work items</span>
             </header>
             {isOpen && (
-              <div className={`kanban-row ${isMobile ? "mobile-view" : ""}`}>
+              <div className="kanban-row">
                 {statuses.map((status, idx) => {
                   const issuesForStatus = byStatus(lane.issues, status);
                   return (
-                    <div
-                      className={`kanban-column ${isMobile ? "mobile-column" : ""}`}
-                      key={status}
-                      onDragOver={onDragOver}
-                      onDrop={(e) => onDrop(e, status, lane.id)}
-                    >
+                    <div className="kanban-column" key={status} onDragOver={onDragOver} onDrop={e => onDrop(e, status, lane.id)}>
                       <div className="col-header">
-                        <span className="col-title">
-                          {status.toUpperCase()}
+                        <span className="col-title">{status.toUpperCase()}</span>
+                        <span className="col-icons">
+                          <button className="col-icon" title="Add Column" onClick={e => openAddColumnModal(e, lane.id, idx)}>＋</button>
+                          <button className="col-icon" title="Edit/Delete Column" onClick={e => openEditColumnModal(e, lane.id, idx, status)}>⋮</button>
                         </span>
-                        {!isMobile && (
-                          <span className="col-icons">
-                            <button
-                              className="col-icon"
-                              title="Add Column"
-                              onClick={(e) =>
-                                openAddColumnModal(e, lane.id, idx)
-                              }
-                            >
-                              ＋
-                            </button>
-                            <button
-                              className="col-icon"
-                              title="Edit/Delete Column"
-                              onClick={(e) =>
-                                openEditColumnModal(e, lane.id, idx, status)
-                              }
-                            >
-                              ⋮
-                            </button>
-                          </span>
-                        )}
-                        {issuesForStatus.length > 0 && (
-                          <span className="col-count">
-                            {issuesForStatus.length}
-                          </span>
-                        )}
+                        {issuesForStatus.length > 0 && <span className="col-count">{issuesForStatus.length}</span>}
                       </div>
                       <div className="col-create">
-                        {status === "backlog" &&
-                          (createLaneId === lane.id ? (
+                        {status === 'backlog' && (
+                          createLaneId === lane.id ? (
                             <div className="create-card">
-                              <textarea
-                                rows={2}
-                                className="create-input"
-                                placeholder="What needs to be done?"
-                                value={newTaskText}
-                                onChange={(e) => setNewTaskText(e.target.value)}
-                              />
+                              <textarea rows={2} className="create-input" placeholder="What needs to be done?" value={newTaskText} onChange={e => setNewTaskText(e.target.value)} />
                               <div className="create-actions">
-                                <select
-                                  value={newTaskType}
-                                  onChange={(e) =>
-                                    setNewTaskType(e.target.value)
-                                  }
-                                  className="create-select"
-                                >
-                                  <option>Task</option>
-                                  <option>Subtask</option>
-                                  <option>Bug</option>
+                                <select value={newTaskType} onChange={e => setNewTaskType(e.target.value)} className="create-select">
+                                  <option>Task</option><option>Subtask</option><option>Bug</option>
                                 </select>
-                                <button
-                                  className="create-btn"
-                                  onClick={() => handleCreateSubmit(lane)}
-                                >
-                                  ✔
-                                </button>
-                                <button
-                                  className="create-btn"
-                                  onClick={() => setCreateLaneId(null)}
-                                >
-                                  ✖
-                                </button>
+                                <button className="create-btn" onClick={() => handleCreateSubmit(lane)}>✔</button>
+                                <button className="create-btn" onClick={() => setCreateLaneId(null)}>✖</button>
                               </div>
                             </div>
-                          ) : (
-                            <span
-                              className="create-link"
-                              onClick={() => handleCreateClick(lane.id)}
-                            >
-                              + Create
-                            </span>
-                          ))}
+                          ) : (<span className="create-link" onClick={() => handleCreateClick(lane.id)}>+ Create</span>)
+                        )}
                       </div>
-                      {issuesForStatus.map((issue) => {
+                      {issuesForStatus.map(issue => {
                         const isHovered = hoveredAssigneeId === issue.id;
                         return (
-                          <div
-                            className="card-item"
-                            key={issue.id}
-                            draggable
-                            onDragStart={(e) => onDragStart(e, issue.id)}
-                            onClick={() => handleOpenModal(issue)}
-                          >
+                          <div className="card-item" key={issue.id} draggable onDragStart={e => onDragStart(e, issue)} onClick={() => handleIssueClick(issue)}>
                             <div className="card-top">
-                              <span
-                                className={`card-tag card-tag-${issue.type.toLowerCase()}`}
-                              >
-                                {issue.type}
-                              </span>
-                              <span className="card-id">{issue.id}</span>
+                              <span className={`card-tag card-tag-${issue.type.toLowerCase()}`}>{issue.type}</span>
+                              <span className="card-id">#{issue.id}</span>
                             </div>
                             <div className="card-title">{issue.title}</div>
                             <div className="card-meta">
+                              {issue.dueDate && <span className="card-due">📅 {issue.dueDate}</span>}
+                              <span className={`card-priority ${issue.priority.toLowerCase()}`}>⚑ {issue.priority}</span>
                               {issue.assignee && (
-                                <span
-                                  className="card-assignee"
-                                  onMouseEnter={() =>
-                                    setHoveredAssigneeId(issue.id)
-                                  }
-                                  onMouseLeave={() =>
-                                    setHoveredAssigneeId(null)
-                                  }
-                                >
-                                  👤 {issue.assignee}
+                                <span className="card-assignee" onMouseEnter={() => setHoveredAssigneeId(issue.id)} onMouseLeave={() => setHoveredAssigneeId(null)} style={{ position: 'relative', cursor: 'default', userSelect: 'none' }}>
+                                  👤
+                                  {isHovered && <div className="assignee-tooltip">{issue.assignee}</div>}
                                 </span>
                               )}
-                              {issue.dueDate && (
-                                <span className="card-due">
-                                  📅 {issue.dueDate}
-                                </span>
-                              )}
-                              <span
-                                className={`card-priority ${issue.priority.toLowerCase()}`}
-                              >
-                                ⚑ {issue.priority}
-                              </span>
                             </div>
                           </div>
                         );
                       })}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
           </section>
         );
       })}
-      {/* Column Add/Edit modal */}
-      {columnModal &&
-        (columnModal.type === "add" || columnModal.type === "menu") && (
+
+      {/* Issue Detail Modal */}
+      {selectedIssue && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0,0,0,0.5)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 1000
+        }}>
           <div
-            className="epic-modal-overlay"
-            onClick={() => setColumnModal(null)}
             style={{
-              position: "fixed",
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              zIndex: 1000,
+              background: 'white',
+              borderRadius: '12px',
+              padding: '30px',
+              width: '90vw',
+              maxWidth: '800px',
+              maxHeight: '90vh',
+              overflow: 'auto',
+              position: 'relative',
+              transform: `translate(${modalDrag.position.x}px, ${modalDrag.position.y}px)`
             }}
+            onMouseDown={handleModalMouseDown}
           >
-            <div
-              className="epic-modal"
-              onClick={(e) => e.stopPropagation()}
+            <button
+              onClick={() => { setSelectedIssue(null); setEditIssue(null); }}
               style={{
-                position: isMobile ? "fixed" : "absolute",
-                top: isMobile ? "50%" : modalPosition.top,
-                left: isMobile ? "50%" : modalPosition.left,
-                transform: isMobile
-                  ? "translate(-50%, -50%)"
-                  : "translateX(-50%)",
-                minWidth: isMobile ? "90vw" : 280,
-                maxWidth: isMobile ? "95vw" : 320,
-                padding: 20,
-                borderRadius: 10,
-                background: "white",
-                boxShadow: "0 10px 40px rgba(0,0,0,0.3)",
-                zIndex: 1100,
+                position: 'absolute',
+                top: '15px',
+                right: '15px',
+                background: 'none',
+                border: 'none',
+                fontSize: '24px',
+                cursor: 'pointer',
+                color: '#6b7280'
               }}
             >
-              {columnModal.type === "add" ? (
-                <>
-                  <h3
-                    style={{
-                      marginBottom: 15,
-                      fontWeight: 600,
-                      fontSize: 20,
-                      color: "#172b4d",
-                    }}
-                  >
-                    Add Column
-                  </h3>
-                  <input
-                    value={columnInput}
-                    onChange={(e) => setColumnInput(e.target.value)}
-                    placeholder="Column name"
-                    autoFocus
-                    className="epic-modal-input"
-                    style={{
-                      width: "100%",
-                      padding: 12,
-                      fontSize: 16,
-                      borderRadius: 6,
-                      border: "1px solid #dfe1e5",
-                      marginBottom: 20,
-                      boxSizing: "border-box",
-                    }}
-                  />
-                  <div
-                    className="epic-modal-actions"
-                    style={{
-                      display: "flex",
-                      justifyContent: "flex-end",
-                      gap: 12,
-                      flexWrap: isMobile ? "wrap" : "nowrap",
-                    }}
-                  >
-                    <button
-                      className="btn-cancel"
-                      onClick={() => setColumnModal(null)}
-                      style={btnStyle.cancel}
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      className="btn-create"
-                      onClick={handleAddColumn}
-                      style={btnStyle.create}
-                    >
-                      Add
-                    </button>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <h3
-                    style={{
-                      marginBottom: 15,
-                      fontWeight: 600,
-                      fontSize: 20,
-                      color: "#172b4d",
-                    }}
-                  >
-                    Edit/Delete Column
-                  </h3>
-                  <input
-                    value={columnInput}
-                    onChange={(e) => setColumnInput(e.target.value)}
-                    placeholder="Column name"
-                    autoFocus
-                    className="epic-modal-input"
-                    style={{
-                      width: "100%",
-                      padding: 12,
-                      fontSize: 16,
-                      borderRadius: 6,
-                      border: "1px solid #dfe1e5",
-                      marginBottom: 20,
-                      boxSizing: "border-box",
-                    }}
-                  />
-                  <div
-                    className="epic-modal-actions"
-                    style={{
-                      display: "flex",
-                      justifyContent: "flex-end",
-                      gap: 12,
-                      flexWrap: isMobile ? "wrap" : "nowrap",
-                    }}
-                  >
-                    <button
-                      className="btn-save"
-                      onClick={handleEditColumn}
-                      style={btnStyle.create}
-                    >
-                      Rename
-                    </button>
-                    <button
-                      className="btn-delete"
-                      onClick={handleDeleteColumn}
-                      style={btnStyle.delete}
-                    >
-                      Delete
-                    </button>
-                    <button
-                      className="btn-cancel"
-                      onClick={() => setColumnModal(null)}
-                      style={btnStyle.cancel}
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </>
-              )}
+              ×
+            </button>
+
+            <h2 style={{ margin: '0 0 20px 0', color: '#1f2937' }}>
+              {editIssue?.title || selectedIssue.title}
+            </h2>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px' }}>
+              <div>
+                <label style={{ display: 'block', marginBottom: '5px', fontWeight: '600' }}>Title</label>
+                <input
+                  type="text"
+                  value={editIssue?.title || ''}
+                  onChange={(e) => setEditIssue(prev => ({ ...prev, title: e.target.value }))}
+                  style={{
+                    width: '100%',
+                    padding: '8px',
+                    border: '1px solid #d1d5db',
+                    borderRadius: '6px',
+                    fontSize: '14px'
+                  }}
+                />
+              </div>
+              <div>
+                <label style={{ display: 'block', marginBottom: '5px', fontWeight: '600' }}>Priority</label>
+                <select
+                  value={editIssue?.priority || ''}
+                  onChange={(e) => setEditIssue(prev => ({ ...prev, priority: e.target.value }))}
+                  style={{
+                    width: '100%',
+                    padding: '8px',
+                    border: '1px solid #d1d5db',
+                    borderRadius: '6px',
+                    fontSize: '14px'
+                  }}
+                >
+                  <option value="Low">Low</option>
+                  <option value="Medium">Medium</option>
+                  <option value="High">High</option>
+                </select>
+              </div>
             </div>
-          </div>
-        )}
-      {/* Issue modal - Centered in the middle of the page */}
-      {selectedIssue && editIssue && (
-        <div className="modal-overlay" onClick={() => setSelectedIssue(null)}>
-          <div
-            className={`modal-container ${isMobile ? "mobile-modal-container" : ""}`}
-            ref={modalRef}
-          >
-            <div
-              className={`modal ${isMobile ? "mobile-modal" : ""} ${modalDrag.isDragging ? "modal-dragging" : ""}`}
-              onClick={(e) => e.stopPropagation()}
-              onMouseDown={handleModalMouseDown}
-              style={
-                !isMobile &&
-                modalDrag.position.x !== 0 &&
-                modalDrag.position.y !== 0
-                  ? {
-                      position: "fixed",
-                      top: modalDrag.position.y,
-                      left: modalDrag.position.x,
-                      transform: "none",
-                    }
-                  : {}
-              }
-            >
-              <div className="modal-header">
-                <div className="modal-header-content">
-                  <span className="modal-epic-badge">{editIssue.epicName}</span>
-                  <h2 className="modal-title">
-                    {editIssue.title || "Untitled Issue"}
-                  </h2>
-                  <div className="modal-id-type">
-                    <span className="modal-id">{editIssue.id}</span>
-                    <span
-                      className={`modal-type modal-type-${editIssue.type.toLowerCase()}`}
-                    >
-                      {editIssue.type}
-                    </span>
-                  </div>
-                </div>
+
+            <div style={{ marginBottom: '20px' }}>
+              <label style={{ display: 'block', marginBottom: '5px', fontWeight: '600' }}>Description</label>
+              <textarea
+                value={editIssue?.description || ''}
+                onChange={(e) => setEditIssue(prev => ({ ...prev, description: e.target.value }))}
+                style={{
+                  width: '100%',
+                  padding: '8px',
+                  border: '1px solid #d1d5db',
+                  borderRadius: '6px',
+                  fontSize: '14px',
+                  height: '80px',
+                  resize: 'vertical'
+                }}
+              />
+            </div>
+
+            {/* Subtasks */}
+            <div style={{ marginBottom: '20px' }}>
+              <label style={{ display: 'block', marginBottom: '10px', fontWeight: '600' }}>Subtasks</label>
+              <div style={{ display: 'flex', gap: '8px', marginBottom: '10px' }}>
+                <input
+                  type="text"
+                  value={newSubtaskText}
+                  onChange={(e) => setNewSubtaskText(e.target.value)}
+                  onKeyPress={handleSubtaskKeyPress}
+                  placeholder="Add subtask..."
+                  style={{
+                    flex: 1,
+                    padding: '8px',
+                    border: '1px solid #d1d5db',
+                    borderRadius: '6px',
+                    fontSize: '14px'
+                  }}
+                />
                 <button
-                  className="modal-close-btn"
-                  onClick={() => setSelectedIssue(null)}
+                  type="button"
+                  onClick={addSubtask}
+                  style={{
+                    padding: '8px 16px',
+                    background: '#3b82f6',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    fontSize: '14px'
+                  }}
                 >
-                  ✖
+                  Add
                 </button>
               </div>
-
-              <div className="modal-content-scroll">
-                <div
-                  className={`modal-content ${isMobile ? "mobile-modal-content" : ""}`}
-                >
-                  <div className="modal-section">
-                    <h3 className="modal-section-title">Details</h3>
-                    <div className="modal-grid">
-                      <div className="modal-field">
-                        <label className="modal-label">Title</label>
-                        <input
-                          className="modal-input"
-                          value={editIssue.title}
-                          onChange={(e) =>
-                            handleUpdateField("title", e.target.value)
-                          }
-                          placeholder="Enter issue title"
-                        />
-                      </div>
-                      <div className="modal-field">
-                        <label className="modal-label">Status</label>
-                        <select
-                          className="modal-select"
-                          value={editIssue.status}
-                          onChange={(e) =>
-                            handleUpdateField("status", e.target.value)
-                          }
-                        >
-                          {columnsByLane[editIssue.epic]?.map((st) => (
-                            <option key={st} value={st}>
-                              {st.charAt(0).toUpperCase() + st.slice(1)}
-                            </option>
-                          )) ||
-                            defaultStatuses.map((st) => (
-                              <option key={st} value={st}>
-                                {st.charAt(0).toUpperCase() + st.slice(1)}
-                              </option>
-                            ))}
-                        </select>
-                      </div>
-                      <div className="modal-field">
-                        <label className="modal-label">Assignee</label>
-                        <input
-                          className="modal-input"
-                          value={editIssue.assignee}
-                          onChange={(e) =>
-                            handleUpdateField("assignee", e.target.value)
-                          }
-                          placeholder="Unassigned"
-                        />
-                      </div>
-                      <div className="modal-field">
-                        <label className="modal-label">Reporter</label>
-                        <input
-                          className="modal-input modal-input-disabled"
-                          disabled
-                          value={editIssue.reporter}
-                        />
-                      </div>
-                      <div className="modal-field">
-                        <label className="modal-label">Priority</label>
-                        <select
-                          className="modal-select"
-                          value={editIssue.priority}
-                          onChange={(e) =>
-                            handleUpdateField("priority", e.target.value)
-                          }
-                        >
-                          <option>Low</option>
-                          <option>Medium</option>
-                          <option>High</option>
-                          <option>Critical</option>
-                        </select>
-                      </div>
-                      <div className="modal-field">
-                        <label className="modal-label">Story Points</label>
-                        <input
-                          className="modal-input"
-                          type="number"
-                          value={editIssue.storyPoints}
-                          onChange={(e) =>
-                            handleUpdateField("storyPoints", e.target.value)
-                          }
-                          placeholder="0"
-                        />
-                      </div>
-                      <div className="modal-field">
-                        <label className="modal-label">Start Date</label>
-                        <input
-                          className="modal-input"
-                          type="date"
-                          value={editIssue.startDate}
-                          onChange={(e) =>
-                            handleUpdateField("startDate", e.target.value)
-                          }
-                        />
-                      </div>
-                      <div className="modal-field">
-                        <label className="modal-label">Due Date</label>
-                        <input
-                          className="modal-input"
-                          type="date"
-                          value={editIssue.dueDate}
-                          onChange={(e) =>
-                            handleUpdateField("dueDate", e.target.value)
-                          }
-                        />
-                      </div>
-                      <div className="input-group file-group">
-                        <label className="input-label">Attach File</label>
-                        <label
-                          htmlFor="profileFile"
-                          className="file-upload-btn"
-                        >
-                          <FiUpload className="btn-icon" />
-                          {profileFile ? profileFile.name : "Choose File"}
-                        </label>
-                        <input
-                          id="profileFile"
-                          type="file"
-                          name="profileFile"
-                          onChange={handleNewUserChange}
-                          accept="image/*"
-                          style={{ display: "none" }}
-                        />
-                      </div>
-                    </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {(editIssue?.subtasks || []).map(subtask => (
+                  <div key={subtask.id} style={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    gap: '8px',
+                    padding: '8px',
+                    background: '#f9fafb',
+                    borderRadius: '6px'
+                  }}>
+                    <input
+                      type="checkbox"
+                      checked={subtask.completed}
+                      onChange={() => toggleSubtask(subtask.id)}
+                      style={{ margin: 0 }}
+                    />
+                    <span style={{ 
+                      flex: 1, 
+                      textDecoration: subtask.completed ? 'line-through' : 'none',
+                      color: subtask.completed ? '#6b7280' : '#1f2937'
+                    }}>
+                      {subtask.title}
+                    </span>
+                    <button
+                      onClick={() => removeSubtask(subtask.id)}
+                      style={{
+                        background: '#ef4444',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '4px',
+                        padding: '4px 8px',
+                        cursor: 'pointer',
+                        fontSize: '12px'
+                      }}
+                    >
+                      Remove
+                    </button>
                   </div>
-
-                  <div className="modal-section">
-                    <h3 className="modal-section-title">Description</h3>
-                    <div className="modal-field-full">
-                      <textarea
-                        className="modal-textarea"
-                        rows="4"
-                        value={editIssue.description}
-                        onChange={(e) =>
-                          handleUpdateField("description", e.target.value)
-                        }
-                        placeholder="Add a detailed description..."
-                      />
-                    </div>
-                  </div>
-
-                  <div className="modal-section">
-                    <h3 className="modal-section-title">Subtasks</h3>
-                    <div className="modal-field-full">
-                      <div className="subtasks-container">
-                        <div className="subtasks-header">
-                          <span className="subtasks-title">
-                            Subtasks (
-                            {getSubtaskProgress(editIssue.subtasks).completed}/
-                            {getSubtaskProgress(editIssue.subtasks).total})
-                          </span>
-                          {editIssue.subtasks &&
-                            editIssue.subtasks.length > 0 && (
-                              <div className="subtask-progress-bar">
-                                <div
-                                  className="subtask-progress-fill"
-                                  style={{
-                                    width: `${getSubtaskProgress(editIssue.subtasks).percentage}%`,
-                                  }}
-                                ></div>
-                              </div>
-                            )}
-                        </div>
-
-                        <div className="subtasks-list">
-                          {editIssue.subtasks &&
-                          editIssue.subtasks.length > 0 ? (
-                            editIssue.subtasks.map((subtask) => (
-                              <div key={subtask.id} className="subtask-item">
-                                <label className="subtask-checkbox">
-                                  <input
-                                    type="checkbox"
-                                    checked={subtask.completed}
-                                    onChange={() => toggleSubtask(subtask.id)}
-                                  />
-                                  <span
-                                    className={`subtask-text ${subtask.completed ? "completed" : ""}`}
-                                  >
-                                    {subtask.title}
-                                  </span>
-                                </label>
-                                <button
-                                  className="subtask-delete-btn"
-                                  onClick={() => deleteSubtask(subtask.id)}
-                                  title="Delete subtask"
-                                >
-                                  ✕
-                                </button>
-                              </div>
-                            ))
-                          ) : (
-                            <div className="no-subtasks">
-                              No subtasks added yet
-                            </div>
-                          )}
-                        </div>
-
-                        <div className="add-subtask">
-                          <input
-                            type="text"
-                            className="subtask-input"
-                            placeholder="Add a new subtask..."
-                            value={newSubtaskText}
-                            onChange={(e) => setNewSubtaskText(e.target.value)}
-                            onKeyPress={handleSubtaskKeyPress}
-                          />
-                          <button
-                            className="add-subtask-btn"
-                            onClick={addSubtask}
-                            disabled={!newSubtaskText.trim()}
-                          >
-                            Add
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="modal-section">
-                    <h3 className="modal-section-title">Comments</h3>
-                    <div className="modal-field-full">
-                      <textarea
-                        className="modal-textarea"
-                        rows="3"
-                        value={editIssue.comments}
-                        onChange={(e) =>
-                          handleUpdateField("comments", e.target.value)
-                        }
-                        placeholder="Add comments..."
-                      />
-                    </div>
-                  </div>
-                </div>
+                ))}
               </div>
+            </div>
 
-              <div className="modal-actions">
-                <button className="btn-reset" onClick={handleReset}>
-                  Reset Changes
-                </button>
-                <div className="modal-actions-right">
-                  <button
-                    className="modal-delete-btn"
-                    onClick={async () => {
-                      if (
-                        window.confirm(
-                          "Are you sure you want to delete this issue?",
-                        )
-                      ) {
-                        await deleteIssueAPI(selectedIssue.id);
-                        const refreshed = await listIssues(projectId);
-                        setIssues(refreshed);
-                        setSelectedIssue(null);
-                      }
-                    }}
-                  >
-                    Delete Issue
-                  </button>
-                  <button className="btn-save" onClick={handleSave}>
-                    Save Changes
-                  </button>
-                </div>
-              </div>
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+              <button
+                onClick={handleReset}
+                style={{
+                  padding: '10px 20px',
+                  background: '#6b7280',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontSize: '14px'
+                }}
+              >
+                Reset
+              </button>
+              <button
+                onClick={handleDeleteIssue}
+                style={{
+                  padding: '10px 20px',
+                  background: '#ef4444',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontSize: '14px'
+                }}
+              >
+                Delete
+              </button>
+              <button
+                onClick={handleSave}
+                style={{
+                  padding: '10px 20px',
+                  background: '#10b981',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontSize: '14px'
+                }}
+              >
+                Save
+              </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Inline CSS styles */}
+      {/* Column Add/Edit modal */}
+      {columnModal && (columnModal.type === 'add' || columnModal.type === 'menu') && (
+        <div className="epic-modal-overlay" onClick={() => setColumnModal(null)} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 1000 }}>
+          <div className="epic-modal" onClick={e => e.stopPropagation()} style={{
+            position: 'absolute',
+            top: modalPosition.top,
+            left: modalPosition.left,
+            background: 'white',
+            borderRadius: '8px',
+            boxShadow: '0 4px 20px rgba(0,0,0,0.15)',
+            border: '1px solid #e5e7eb',
+            minWidth: isMobile ? '90vw' : 280,
+            maxWidth: isMobile ? '95vw' : 320,
+            padding: 20,
+            borderRadius: 10,
+          }}>
+            {columnModal.type === 'add' ? (
+              <>
+                <h4 style={{ margin: '0 0 15px 0', fontSize: '16px', fontWeight: '600' }}>Add Column</h4>
+                <input
+                  type="text"
+                  value={columnInput}
+                  onChange={(e) => setColumnInput(e.target.value)}
+                  placeholder="Column name"
+                  style={{
+                    width: '100%',
+                    padding: '8px',
+                    border: '1px solid #d1d5db',
+                    borderRadius: '6px',
+                    fontSize: '14px',
+                    marginBottom: '15px'
+                  }}
+                />
+                <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                  <button onClick={() => setColumnModal(null)} style={styles.cancel}>Cancel</button>
+                  <button onClick={handleAddColumn} style={styles.create}>Add</button>
+                </div>
+              </>
+            ) : (
+              <>
+                <h4 style={{ margin: '0 0 15px 0', fontSize: '16px', fontWeight: '600' }}>Column Actions</h4>
+                <input
+                  type="text"
+                  value={columnInput}
+                  onChange={(e) => setColumnInput(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '8px',
+                    border: '1px solid #d1d5db',
+                    borderRadius: '6px',
+                    fontSize: '14px',
+                    marginBottom: '15px'
+                  }}
+                />
+                <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                  <button onClick={() => setColumnModal(null)} style={styles.cancel}>Cancel</button>
+                  <button onClick={handleDeleteColumn} style={styles.delete}>Delete</button>
+                  <button onClick={handleRenameColumn} style={styles.create}>Rename</button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
       <style>{`
-
-  body {
-    font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif;
-    background-color: #D0F0F4;
-    margin: 0;
-    padding: 16px;
-  }
-  .board-wrap {
-    max-width: 100%;
-    overflow-x: auto;
-  }
-  .project-header {
-    background: #dbeafe;
-    border-radius: 8px;
-    padding: 20px 24px;
-    margin-bottom: 20px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-    border-left: 4px solid #1976d2;
-  }
-  .project-title {
-    margin: 0 0 12px 0;
-    font-size: 28px;
-    font-weight: 700;
-    color: #172b4d;
-    line-height: 1.2;
-  }
-  .project-stats {
-    display: flex;
-    gap: 20px;
-    flex-wrap: wrap;
-  }
-  .project-stat {
-    background: #dbeafe;
-    padding: 6px 12px;
-    border-radius: 16px;
-    font-size: 14px;
-    font-weight: 600;
-    color: #5e6c84;
-    display: flex;
-    align-items: center;
-    gap: 4px;
-  }
-  .project-stat:before {
-    content: "•";
-    color: #1976d2;
-    font-weight: bold;
-  }
-  @media (min-width: 768px) {
-    .swimlane {
-      background: #dbeafe;
-      border-radius: 8px;
-      margin-bottom: 16px;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-      overflow: hidden;
-    }
-    .kanban-row {
-      display: flex;
-      padding: 16px;
-      gap: 12px;
-      overflow-x: auto;
-    }
-    .kanban-column {
-      flex: 0 0 260px;
-      background: #f5f6f8;
-      border-radius: 6px;
-      padding: 12px;
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-      border: 1px solid #dfe5e5;
-      user-select: none;
-      min-height: 400px;
-    }
-  }
-  @media (max-width: 767px) {
-    body {
-      padding: 8px;
-    }
-    .project-header {
-      padding: 16px;
-      margin-bottom: 16px;
-      border-left-width: 3px;
-    }
-    .project-title {
-      font-size: 22px;
-      margin-bottom: 10px;
-    }
-    .project-stats {
-      gap: 12px;
-    }
-    .project-stat {
-      font-size: 12px;
-      padding: 4px 10px;
-    }
-    .mobile-swimlane-selector {
-      margin-bottom: 16px;
-      position: sticky;
-      top: 0;
-      background: white;
-      padding: 12px;
-      border-radius: 8px;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-      z-index: 100;
-    }
-    .mobile-select {
-      width: 100%;
-      padding: 12px;
-      border: 1px solid #dfe5e5;
-      border-radius: 6px;
-      font-size: 16px;
-      background: white;
-    }
-    .swimlane {
-      background: #dbeafe;
-      border-radius: 8px;
-      margin-bottom: 12px;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-      overflow: hidden;
-    }
-    .swimlane-header {
-      display: flex;
-      align-items: center;
-      padding: 12px;
-      background: #fafbfc;
-      border-bottom: 1px solid #dfe5e5;
-      font-weight: 600;
-      font-size: 14px;
-      color: #172b4d;
-      position: relative;
-    }
-    .mobile-swimlane-toggle {
-      background:#dbeafe;
-      border: none;
-      font-size: 16px;
-      color: #5e6c84;
-      margin-left: auto;
-      padding: 4px 8px;
-    }
-    .kanban-row.mobile-view {
-      display: block;
-      padding: 8px;
-      overflow-x: auto;
-      white-space: nowrap;
-    }
-    .kanban-column.mobile-column {
-      display: inline-block;
-      vertical-align: top;
-      width: 280px;
-      margin-right: 8px;
-      background: #dbeafe;
-      border-radius: 6px;
-      padding: 8px;
-      border: 1px solid #dfe5e5;
-      user-select: none;
-      min-height: 300px;
-    }
-    .col-header {
-      display: flex;
-      align-items: center;
-      margin-bottom: 8px;
-      gap: 6px;
-    }
-    .col-title {
-      font-weight: 600;
-      font-size: 11px;
-      color: #5e6c84;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      flex-grow: 1;
-    }
-    .card-item {
-      background: #dbeafe;
-      border-radius: 6px;
-      padding: 10px;
-      box-shadow: 0 0 2px rgba(0,0,0,0.1);
-      cursor: pointer;
-      user-select: none;
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-      border: 1px solid #dfe5e5;
-      margin-bottom: 8px;
-    }
-    .card-title {
-      font-weight: 600;
-      font-size: 13px;
-      color: #2b3a59;
-      line-height: 1.3;
-    }
-    .card-meta {
-      display: flex;
-      gap: 6px;
-      font-size: 10px;
-      color: #6b7c93;
-      align-items: center;
-      flex-wrap: wrap;
-    }
-    .modal.mobile-modal {
-      width: 100%;
-      max-height: 90vh;
-      display: flex;
-      flex-direction: column;
-    }
-    .modal-content.mobile-modal-content {
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-      overflow-y: auto;
-    }
-    .modal-field {
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-    }
-    .modal-field input, .modal-field textarea, .modal-field select {
-      padding: 10px;
-      font-size: 16px;
-    }
-    .modal-actions {
-      display: flex;
-      gap: 8px;
-      justify-content: space-between;
-      margin-top: 16px;
-    }
-    .modal-actions button {
-      flex: 1;
-      padding: 12px;
-      font-size: 16px;
-    }
-  }
-
-  /* Card Styles */
-  .card-item {
-    background: #dbeafe;
-    border-radius: 8px;
-    padding: 12px;
-    box-shadow: 0 0 2px rgba(0,0,0,0.1);
-    cursor: pointer;
-    user-select: none;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    border: 1px solid #dfe5e5;
-    transition: box-shadow 0.2s ease, border-color 0.2s ease;
-  }
-
-  .card-item:hover {
-    box-shadow: 0px 2px 10px rgba(0,0,0,0.15);
-    border-color: #a2adba;
-  }
-
-  .card-top {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    gap: 8px;
-  }
-
-  .card-tag {
-    padding: 2px 6px;
-    border-radius: 4px;
-    font-size: 10px;
-    font-weight: 600;
-    text-transform: uppercase;
-  }
-
-  .card-tag-task { background: #e3f2fd; color: #1976d2; }
-  .card-tag-subtask { background: #f3e5f5; color: #7b1fa2; }
-  .card-tag-bug { background: #dbeafe; color: #d32f2f; }
-
-  .card-id {
-    font-size: 10px;
-    color: #6b7c93;
-    font-family: 'Monaco', 'Menlo', monospace;
-    font-weight: 600;
-  }
-
-  .card-title {
-    font-weight: 600;
-    font-size: 14px;
-    color: #2b3a59;
-    line-height: 1.3;
-    margin: 0;
-    word-break: break-word;
-  }
-
-  .card-meta {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-  }
-
-  .card-assignee {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    font-size: 11px;
-    color: #5e6c84;
-    font-weight: 500;
-  }
-
-  .card-due {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    font-size: 11px;
-    color: #d32f2f;
-    font-weight: 500;
-  }
-
-  .card-priority {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    font-size: 11px;
-    font-weight: 600;
-    padding: 2px 6px;
-    border-radius: 4px;
-    width: fit-content;
-  }
-
-  .card-priority.high { background: #ffebee; color: #d32f2f; }
-  .card-priority.medium { background: #fff3e0; color: #f57c00; }
-  .card-priority.low { background: #e8f5e8; color: #388e3c; }
-
-  /* Modal Subtasks Styles */
-  .subtasks-container {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-  }
-
-  .subtasks-header {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-  }
-
-  .subtasks-title {
-    font-size: 14px;
-    font-weight: 600;
-    color: #44546f;
-  }
-
-  .subtasks-list {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    max-height: 200px;
-    overflow-y: auto;
-  }
-
-  .subtask-item {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 8px 12px;
-    background: #dbeafe;
-    border-radius: 6px;
-    border: 1px solid #e1e4e8;
-    transition: background-color 0.2s;
-  }
-
-  .subtask-item:hover {
-    background: #f1f2f4;
-  }
-
-  .subtask-checkbox {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    flex: 1;
-    cursor: pointer;
-    margin: 0;
-  }
-
-  .subtask-checkbox input[type="checkbox"] {
-    margin: 0;
-    cursor: pointer;
-  }
-
-  .subtask-text {
-    font-size: 14px;
-    color: #44546f;
-    transition: all 0.2s;
-  }
-
-  .subtask-text.completed {
-    text-decoration: line-through;
-    color: #8b9cb1;
-  }
-
-  .subtask-delete-btn {
-    background: none;
-    border: none;
-    color: #d32f2f;
-    cursor: pointer;
-    padding: 4px;
-    border-radius: 4px;
-    font-size: 12px;
-    transition: background-color 0.2s;
-  }
-
-  .subtask-delete-btn:hover {
-    background: #ffebee;
-  }
-
-  .no-subtasks {
-    text-align: center;
-    color: #8b9cb1;
-    font-style: italic;
-    padding: 16px;
-    font-size: 14px;
-  }
-
-  .add-subtask {
-    display: flex;
-    gap: 8px;
-  }
-
-  .subtask-input {
-    flex: 1;
-    padding: 8px 12px;
-    border: 2px solid #dfe1e6;
-    border-radius: 6px;
-    font-size: 14px;
-    transition: border-color 0.2s;
-  }
-
-  .subtask-input:focus {
-    outline: none;
-    border-color: #1976d2;
-  }
-
-  .add-subtask-btn {
-    padding: 8px 16px;
-    background: #1976d2;
-    color: white;
-    border: none;
-    border-radius: 6px;
-    font-size: 14px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: background-color 0.2s;
-  }
-
-  .add-subtask-btn:hover:not(:disabled) {
-    background: #1565c0;
-  }
-
-  .add-subtask-btn:disabled {
-    background: #b0bec5;
-    cursor: not-allowed;
-  }
-
-  /* Enhanced Modal Styles - Centered Positioning */
-  .modal-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0,0,0,0.6);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 10000;
-    padding: 20px;
-  }
-
-  .modal-container {
-    max-width: 1000px;
-    max-height: 90vh;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  position: fixed;
-  // top: 0;
-  left: 400px;
-  width: 900px;
-  height: 100%;
-  z-index: 999; 
-  }
-
-.file-upload-container {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  font-family: Arial, sans-serif;
-}
-
-.file-upload-btn {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 20px;
-  background-color: #007bff;
-  border-radius: 8px;
-  color: white;
-  font-weight: 600;
-  font-size: 16px;
-  cursor: pointer;
-  user-select: none;
-  border: none;
-  transition: background-color 0.25s ease;
-}
-
-.file-upload-btn:hover {
-  background-color: #0056b3;
-}
-
-.btn-icon {
-  font-size: 20px;
-}
-
-#profileFile {
-  display: inline-block;
-  margin-left: 10px;
-  font-size: 14px;
-  color: #555;
-  cursor: pointer;
-}
-
-  .modal {
-    background: white;
-    border-radius: 12px;
-    width: 100%;
-    max-height: 90vh;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-    margin: 0 auto;
-    transition: box-shadow 0.2s ease;
-  }
-
-  .modal-dragging {
-    box-shadow: 0 25px 80px rgba(0,0,0,0.4);
-    cursor: grabbing;
-  }
-
-  .modal-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    padding: 24px;
-    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-    border-bottom: 1px solid #e1e4e8;
-    flex-shrink: 0;
-    cursor: grab;
-    transition: background-color 0.2s ease;
-  }
-
-  .modal-header:hover {
-    background: linear-gradient(135deg, #e9ecef 0%, #dee2e6 100%);
-  }
-
-  .modal-dragging .modal-header {
-    cursor: grabbing;
-    background: linear-gradient(135deg, #dee2e6 0%, #ced4da 100%);
-  }
-
-  .modal-header-content {
-    flex: 1;
-    min-width: 0;
-  }
-
-  .modal-epic-badge {
-    display: inline-block;
-    background: #1976d2;
-    color: white;
-    padding: 4px 12px;
-    border-radius: 16px;
-    font-size: 12px;
-    font-weight: 600;
-    margin-bottom: 8px;
-  }
-
-  .modal-title {
-    margin: 0 0 8px 0;
-    font-size: 24px;
-    font-weight: 700;
-    color: #172b4d;
-    line-height: 1.3;
-    word-wrap: break-word;
-  }
-
-  .modal-id-type {
-    display: flex;
-    gap: 12px;
-    align-items: center;
-  }
-
-  .modal-id {
-    font-size: 14px;
-    color: #5e6c84;
-    font-family: 'Monaco', 'Menlo', monospace;
-  }
-
-  .modal-type {
-    padding: 2px 8px;
-    border-radius: 4px;
-    font-size: 12px;
-    font-weight: 600;
-    text-transform: uppercase;
-  }
-
-  .modal-type-task { background: #e3f2fd; color: #1976d2; }
-  .modal-type-subtask { background: #f3e5f5; color: #7b1fa2; }
-  .modal-type-bug { background: #ffebee; color: #d32f2f; }
-
-  .modal-close-btn {
-    background: none;
-    border: none;
-    font-size: 20px;
-    color: #5e6c84;
-    cursor: pointer;
-    padding: 8px;
-    margin: -8px;
-    border-radius: 4px;
-    transition: background-color 0.2s;
-    flex-shrink: 0;
-  }
-
-  .modal-close-btn:hover {
-    background: rgba(0,0,0,0.1);
-  }
-
-  .modal-content-scroll {
-    flex: 1;
-    overflow-y: auto;
-    padding: 0 24px;
-  }
-
-  .modal-content {
-    padding: 24px 0;
-    display: flex;
-    flex-direction: column;
-    gap: 24px;
-  }
-
-  .modal-section {
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-  }
-
-  .modal-section-title {
-    font-size: 18px;
-    font-weight: 600;
-    color: #172b4d;
-    margin: 0;
-    padding-bottom: 8px;
-    border-bottom: 2px solid #f0f0f0;
-  }
-
-  .modal-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-    gap: 16px;
-  }
-
-  .modal-field {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-  }
-
-  .modal-field-full {
-    grid-column: 1 / -1;
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-  }
-
-  .modal-label {
-    font-size: 14px;
-    font-weight: 600;
-    color: #44546f;
-    margin: 0;
-  }
-
-  .modal-input, .modal-select, .modal-textarea {
-    padding: 12px;
-    border: 2px solid #dfe1e6;
-    border-radius: 8px;
-    font-size: 14px;
-    font-family: inherit;
-    transition: border-color 0.2s, box-shadow 0.2s;
-    background: white;
-  }
-
-  .modal-input:focus, .modal-select:focus, .modal-textarea:focus {
-    outline: none;
-    border-color: #1976d2;
-    box-shadow: 0 0 0 3px rgba(25, 118, 210, 0.1);
-  }
-
-  .modal-input-disabled {
-    background: #f8f9fa;
-    color: #6b778c;
-    cursor: not-allowed;
-  }
-
-  .modal-textarea {
-    resize: vertical;
-    min-height: 80px;
-    line-height: 1.5;
-  }
-
-  .modal-actions {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 20px 24px;
-    background: #f8f9fa;
-    border-top: 1px solid #e1e4e8;
-    gap: 16px;
-    flex-shrink: 0;
-  }
-
-  .modal-actions-right {
-    display: flex;
-    gap: 12px;
-    align-items: center;
-  }
-
-  .btn-reset {
-    padding: 10px 20px;
-    border: 1px solid #dcdfe4;
-    background: white;
-    color: #44546f;
-    border-radius: 6px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.2s;
-  }
-
-  .btn-reset:hover {
-    background: #f1f2f4;
-    border-color: #c1c7d0;
-  }
-
-  .btn-save {
-    padding: 10px 24px;
-    border: none;
-    background: #1976d2;
-    color: white;
-    border-radius: 6px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: background-color 0.2s;
-  }
-
-  .btn-save:hover {
-    background: #1565c0;
-  }
-
-  .modal-delete-btn {
-    padding: 10px 20px;
-    border: 1px solid #ffcdd2;
-    background: white;
-    color: #d32f2f;
-    border-radius: 6px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.2s;
-  }
-
-  .modal-delete-btn:hover {
-    background: #ffebee;
-    border-color: #ef5350;
-  }
-
-  @media (max-width: 767px) {
-    .modal-overlay {
-      padding: 10px;
-    }
-    
-    .modal-container.mobile-modal-container {
-      width: 100%;
-      height: 100%;
-      padding: 0;
-    }
-
-    .modal.mobile-modal {
-      width: 100%;
-      max-height: 100%;
-      border-radius: 0;
-      margin: 0;
-    }
-
-    .modal-header {
-      padding: 16px;
-      flex-direction: column;
-      gap: 12px;
-      cursor: default;
-    }
-
-    .modal-close-btn {
-      align-self: flex-end;
-      margin: 0;
-    }
-
-    .modal-content-scroll {
-      padding: 0 16px;
-    }
-
-    .modal-content {
-      padding: 16px 0;
-      gap: 20px;
-    }
-
-    .modal-grid {
-      grid-template-columns: 1fr;
-      gap: 12px;
-    }
-
-    .modal-actions {
-      padding: 16px;
-      flex-direction: column;
-      gap: 12px;
-    }
-
-    .modal-actions-right {
-      width: 100%;
-      justify-content: space-between;
-    }
-
-    .btn-reset, .modal-delete-btn, .btn-save {
-      flex: 1;
-      text-align: center;
-    }
-
-    .add-subtask {
-      flex-direction: column;
-    }
-
-    .subtasks-list {
-      max-height: 150px;
-    }
-  }
-
-  .swimlane-header {
-    display: flex;
-    align-items: center;
-    padding: 12px 16px;
-    background: #fafbfc;
-    border-bottom: 1px solid #dfe5e5;
-    font-weight: 600;
-    font-size: 14px;
-    color: #172b4d;
-  }
-  .swimlane-toggle, .swimlane-icon {
-    color: #5e6c84;
-    margin-right: 8px;
-    cursor: pointer;
-  }
-  .swimlane-toggle {
-    border: none;
-    background: transparent;
-    font-size: 14px;
-  }
-  .swimlane-icon {
-    font-size: 18px;
-  }
-  .swimlane-title-input {
-    border: 1px solid #dfe5e5;
-    border-radius: 4px;
-    padding: 4px 8px;
-    font-size: 14px;
-    font-weight: 600;
-    background: white;
-    margin-right: 8px;
-    min-width: 150px;
-    color: #172b4d;
-  }
-  .swimlane-title-input:focus {
-    outline: none;
-    border-color: #1976d2;
-  }
-  .swimlane-count {
-    color: #5e6c84;
-    font-size: 12px;
-    font-weight: normal;
-  }
-  .col-header {
-    display: flex;
-    align-items: center;
-    margin-bottom: 4px;
-    gap: 6px;
-  }
-  .col-title {
-    font-weight: 600;
-    font-size: 12px;
-    color: #5e6c84;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    flex-grow: 1;
-  }
-  .col-count {
-    background: #dfe5e5;
-    color: #5e6c84;
-    border-radius: 12px;
-    padding: 2px 8px;
-    font-size: 11px;
-    font-weight: 600;
-    min-width: 20px;
-    text-align: center;
-  }
-  .col-icons {
-    display: flex;
-    gap: 6px;
-  }
-  .col-icon {
-    cursor: pointer;
-    color: #5e6c84;
-    font-size: 18px;
-    background: none;
-    border: none;
-    padding: 0;
-  }
-  .create-card {
-    background: white;
-    padding: 10px;
-    border-radius: 6px;
-    box-shadow: 0 0 2px rgba(0, 0, 0, 0.2);
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-  }
-  button {
-    cursor: pointer;
-    transition: background-color 0.2s;
-  }
-  button:hover {
-    opacity: 0.9;
-  }
-  @media (max-width: 767px) {
-    button, .card-item, .col-icon {
-      min-height: 44px;
-      min-width: 44px;
-    }
-    .card-item {
-      touch-action: manipulation;
-    }
-  }
-`}</style>
+        /* Complete admin portal styling */
+        body {
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+          background-color: #f5f6f8;
+        }
+        .board-wrap {
+          max-width: 100%;
+          overflow-x: auto;
+        }
+        .epic-management-section {
+          padding: 20px;
+          margin-bottom: 20px;
+        }
+        .epic-buttons-container {
+          display: flex;
+          gap: 12px;
+        }
+        .swimlane {
+          background: white;
+          border-radius: 8px;
+          margin-bottom: 16px;
+          box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+          overflow: hidden;
+        }
+        .swimlane-header {
+          display: flex;
+          align-items: center;
+          padding: 12px 16px;
+          background: #D0F0F4;
+          border-bottom: 1px solid #dfe5e5;
+          font-weight: 600;
+          font-size: 14px;
+          color: #172b4d;
+        }
+        .swimlane-toggle {
+          border: none;
+          background: transparent;
+          font-size: 14px;
+          color: #5e6c84;
+          margin-right: 8px;
+          cursor: pointer;
+        }
+        .swimlane-icon {
+          font-size: 18px;
+          color: #5e6c84;
+          margin-right: 8px;
+        }
+        .swimlane-title-input {
+          border: 1px solid #dfe5e5;
+          border-radius: 4px;
+          padding: 4px 8px;
+          font-size: 14px;
+          font-weight: 600;
+          background: white;
+          margin-right: 8px;
+          min-width: 150px;
+          color: #172b4d;
+        }
+        .swimlane-title-input:focus {
+          outline: none;
+          border-color: #1976d2;
+        }
+        .swimlane-count {
+          color: #5e6c84;
+          font-size: 12px;
+          font-weight: normal;
+          user-select: none;
+        }
+        .kanban-row {
+          display: flex;
+          padding: 16px;
+          gap: 12px;
+          overflow-x: auto;
+        }
+        .kanban-column {
+          flex: 0 0 260px;
+          background: #D0F0F4;
+          border-radius: 6px;
+          padding: 12px;
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+          border: 1px solid #dfe5e5;
+          user-select: none;
+        }
+        .col-header {
+          display: flex;
+          align-items: center;
+          margin-bottom: 4px;
+          gap: 6px;
+        }
+        .col-title {
+          font-weight: 600;
+          font-size: 12px;
+          color: #5e6c84;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+          flex-grow: 1;
+          user-select: none;
+        }
+        .col-count {
+          background: #D0F0F4;
+          color: #5e6c84;
+          border-radius: 12px;
+          padding: 2px 8px;
+          font-size: 11px;
+          font-weight: 600;
+          user-select: none;
+          min-width: 20px;
+          text-align: center;
+        }
+        .col-icons {
+          display: flex;
+          gap: 6px;
+        }
+        .col-icon {
+          cursor: pointer;
+          color: #5e6c84;
+          font-size: 18px;
+          background: none;
+          border: none;
+          padding: 0;
+          user-select: none;
+        }
+        .col-icon:hover {
+          color: #1976d2;
+        }
+        .create-card {
+          background: white;
+          padding: 10px;
+          border-radius: 6px;
+          box-shadow: 0 0 2px rgba(0, 0, 0, 0.2);
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+        }
+        .create-card textarea {
+          resize: vertical;
+          min-height: 50px;
+          font-size: 14px;
+          padding: 8px;
+          border-radius: 5px;
+          border: 1px solid #dfe5e5;
+          font-family: inherit;
+        }
+        .create-card textarea:focus {
+          outline: none;
+          border-color: #1976d2;
+        }
+        .create-card .create-actions {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+        }
+        .create-card .create-actions select {
+          flex-grow: 1;
+          padding: 8px;
+          border: 1px solid #dfe5e5;
+          border-radius: 5px;
+          font-size: 14px;
+        }
+        .create-card button {
+          padding: 8px 12px;
+          font-size: 14px;
+          cursor: pointer;
+          border-radius: 5px;
+          border: 1px solid #dfe5e5;
+          background: #f5f6f8;
+          user-select: none;
+          transition: background-color 0.2s;
+        }
+        .create-card button:hover {
+          background: #e1e7f0;
+        }
+        .create-link {
+          color: #5e6c84;
+          cursor: pointer;
+          font-size: 13px;
+          padding: 8px 0;
+          display: block;
+          text-align: center;
+          user-select: none;
+        }
+        .create-link:hover {
+          color: #1976d2;
+          text-decoration: underline;
+        }
+        .card-item {
+          background: white;
+          border-radius: 8px;
+          padding: 12px;
+          box-shadow: 0 0 2px rgba(0,0,0,0.1);
+          cursor: pointer;
+          user-select: none;
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+          border: 1px solid #dfe5e5;
+          transition: box-shadow 0.2s ease, border-color 0.2s ease;
+        }
+        .card-item:hover {
+          box-shadow: 0px 2px 10px rgba(0,0,0,0.15);
+          border-color: #a2adba;
+        }
+        .card-item .card-top {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          font-size: 12px;
+          font-weight: 600;
+          color: #5e6c84;
+          gap: 10px;
+        }
+        .card-item .card-top .card-id {
+          font-family: monospace;
+          color: #a2adba;
+          user-select: text;
+        }
+        .card-tag {
+          border-radius: 6px;
+          padding: 3px 7px;
+          font-size: 11px;
+          font-weight: 600;
+          text-transform: uppercase;
+          white-space: nowrap;
+          user-select: none;
+        }
+        .card-tag-task {
+          background: #e1efff;
+          color: #1976d2;
+        }
+        .card-tag-bug {
+          background: #ffebec;
+          color: #d62127;
+        }
+        .card-tag-subtask {
+          background: #f5e6ff;
+          color: #772da0;
+        }
+        .card-item .card-title {
+          font-weight: 600;
+          font-size: 14px;
+          color: #2b3a59;
+        }
+        .card-item .card-meta {
+          display: flex;
+          gap: 10px;
+          font-size: 12px;
+          color: #6b7c93;
+          align-items: center;
+          user-select: none;
+        }
+        .card-item .card-meta span {
+          background: #f5f7fa;
+          color: #6b7c93;
+          padding: 3px 8px;
+          border-radius: 12px;
+        }
+        .card-item .card-meta .card-priority.low {
+          background: #d4edda;
+          color: #155724;
+        }
+        .card-item .card-meta .card-priority.medium {
+          background: #fff3cd;
+          color: #856404;
+        }
+        .card-item .card-meta .card-priority.high {
+          background: #f8d7da;
+          color: #721c24;
+        }
+        .assignee-tooltip {
+          position: absolute;
+          top: -30px;
+          left: 50%;
+          transform: translateX(-50%);
+          background: #222;
+          color: white;
+          border-radius: 4px;
+          padding: 4px 8px;
+          font-size: 11px;
+          white-space: nowrap;
+          z-index: 10;
+          user-select: none;
+        }
+        .epic-modal-overlay {
+          position: fixed;
+          top: 0; left: 0; right: 0; bottom: 0;
+          background: rgba(0,0,0,0.5);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 1000;
+        }
+        .epic-modal {
+          background: white;
+          border-radius: 8px;
+          width: 350px;
+          padding: 20px;
+          box-shadow: 0 0 10px rgba(0,0,0,0.2);
+          position: relative;
+        }
+        .epic-modal-content h3 {
+          margin: 0 0 20px 0;
+          font-weight: 700;
+          font-size: 20px;
+          color: #2b3a59;
+          user-select: none;
+        }
+        .epic-modal-content p.delete-warning {
+          background: #ffe6e6;
+          padding: 10px;
+          color: #d94343;
+          font-size: 14px;
+          margin-bottom: 15px;
+          border-radius: 6px;
+        }
+        .epic-modal-input, .epic-modal-select {
+          width: 100%;
+          padding: 10px;
+          font-size: 14px;
+          margin-bottom: 20px;
+          border-radius: 6px;
+          border: 1px solid #dfe5e5;
+          box-sizing: border-box;
+          font-family: inherit;
+        }
+        .epic-modal-input:focus, .epic-modal-select:focus {
+          outline: none;
+          border-color: #485fc7;
+        }
+        .epic-modal-actions {
+          display: flex;
+          justify-content: space-between;
+          gap: 15px;
+        }
+        button.create-epic-btn, button.delete-epic-btn {
+          background: #485fc7;
+          color: white;
+          font-weight: 600;
+          border: none;
+          padding: 10px 20px;
+          border-radius: 8px;
+          cursor: pointer;
+          font-size: 15px;
+          user-select: none;
+        }
+        button.create-epic-btn:hover, button.delete-epic-btn:hover {
+          background: #374cac;
+        }
+        button.delete-epic-btn {
+          background: #d94343;
+        }
+        button.delete-epic-btn:hover {
+          background: #b83232;
+        }
+        button.btn-cancel {
+          padding: 10px 18px;
+          border-radius: 6px;
+          border: none;
+          background-color: #5e6c84;
+          color: white;
+          font-weight: 600;
+          font-size: 14px;
+          cursor: pointer;
+        }
+        button.btn-cancel:hover {
+          background: #485fc7;
+        }
+        button.btn-create {
+          padding: 10px 18px;
+          border-radius: 6px;
+          border: none;
+          background-color: #1976d2;
+          color: white;
+          font-weight: 600;
+          font-size: 14px;
+          cursor: pointer;
+        }
+        button.btn-create:hover {
+          background: #1565c0;
+        }
+        button.btn-delete {
+          padding: 10px 18px;
+          border-radius: 6px;
+          border: none;
+          background-color: #d32f2f;
+          color: white;
+          font-weight: 600;
+          font-size: 14px;
+          cursor: pointer;
+        }
+        button.btn-delete:hover {
+          background: #c62828;
+        }
+        button.btn-delete:disabled {
+          background: #ccc;
+          cursor: not-allowed;
+        }
+      `}</style>
     </div>
   );
 }
 
-const btnStyle = {
+const styles = {
   cancel: {
-    padding: "10px 18px",
+    padding: "8px 16px",
     borderRadius: "6px",
-    border: "none",
-    backgroundColor: "#5e6c84",
-    color: "white",
-    fontWeight: "600",
-    fontSize: "14px",
+    border: "1px solid #d1d5db",
+    background: "white",
+    color: "#374151",
     cursor: "pointer",
+    fontSize: "14px",
   },
   create: {
-    padding: "10px 18px",
+    padding: "8px 16px",
     borderRadius: "6px",
     border: "none",
-    backgroundColor: "#1976d2",
+    backgroundColor: "#3b82f6",
     color: "white",
-    fontWeight: "600",
-    fontSize: "14px",
     cursor: "pointer",
+    fontSize: "14px",
   },
   delete: {
-    padding: "10px 18px",
+    padding: "8px 16px",
     borderRadius: "6px",
     border: "none",
-    backgroundColor: "#d32f2f",
+    backgroundColor: "#ef4444",
     color: "white",
-    fontWeight: "600",
-    fontSize: "14px",
     cursor: "pointer",
+    fontSize: "14px",
   },
 };

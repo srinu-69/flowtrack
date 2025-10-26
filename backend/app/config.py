@@ -16,7 +16,9 @@
 from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
-    database_url: str = "sqlite+aiosqlite:///./flowtrack.db"  # Default to SQLite
+    # PostgreSQL database connection
+    # Format: postgresql+asyncpg://username:password@host:port/database_name
+    database_url: str = "postgresql+asyncpg://postgres:12345@localhost:5432/flow"
     backend_host: str = "0.0.0.0"
     backend_port: int = 8000
 
