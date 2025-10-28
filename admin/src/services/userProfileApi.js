@@ -91,3 +91,17 @@ export async function deleteUserProfile(userId) {
   }
 }
 
+// Delete user from users_management table (admin portal)
+export async function deleteUserFromManagement(userId) {
+  try {
+    const response = await fetch(`${API_URL}/users-management/${userId}`, {
+      method: 'DELETE',
+    });
+    if (!response.ok) throw new Error('Failed to delete user from management');
+    return true;
+  } catch (error) {
+    console.error('Error deleting user from management:', error);
+    throw error;
+  }
+}
+

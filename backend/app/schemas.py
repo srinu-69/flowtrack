@@ -257,12 +257,20 @@ class TicketCreate(BaseModel):
     description: Optional[str] = None
     status: Optional[str] = "Open"
     priority: Optional[str] = "Medium"
+    assignee: Optional[str] = None
+    reporter: Optional[str] = None  # Email of user who created/assigned the ticket
+    start_date: Optional[date] = None
+    due_date: Optional[date] = None
 
 class TicketUpdate(BaseModel):
     title: Optional[str] = None
     description: Optional[str] = None
     status: Optional[str] = None
     priority: Optional[str] = None
+    assignee: Optional[str] = None
+    reporter: Optional[str] = None  # Email of user who created/assigned the ticket
+    start_date: Optional[date] = None
+    due_date: Optional[date] = None
 
 # Project Schemas
 class ProjectCreate(BaseModel):
@@ -270,6 +278,7 @@ class ProjectCreate(BaseModel):
     project_key: str
     project_type: Optional[str] = "Software"
     leads: Optional[str] = None
+    team_members: Optional[str] = None  # Comma-separated team member emails
     description: Optional[str] = None
 
 class ProjectUpdate(BaseModel):
@@ -277,6 +286,7 @@ class ProjectUpdate(BaseModel):
     project_key: Optional[str] = None
     project_type: Optional[str] = None
     leads: Optional[str] = None
+    team_members: Optional[str] = None  # Comma-separated team member emails
     description: Optional[str] = None
 
 class ProjectOut(BaseModel):
@@ -285,6 +295,7 @@ class ProjectOut(BaseModel):
     project_key: str
     project_type: str
     leads: Optional[str] = None
+    team_members: Optional[str] = None  # Comma-separated team member emails
     description: Optional[str] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
@@ -314,6 +325,10 @@ class TicketOut(BaseModel):
     description: Optional[str] = None
     status: str
     priority: str
+    assignee: Optional[str] = None
+    reporter: Optional[str] = None  # Email of user who created/assigned the ticket
+    start_date: Optional[date] = None
+    due_date: Optional[date] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 
@@ -358,6 +373,10 @@ class AdminTicketCreate(BaseModel):
     description: Optional[str] = None
     status: str = 'Open'
     priority: str = 'Medium'
+    assignee: Optional[str] = None
+    reporter: Optional[str] = None  # Email of user who created/assigned the ticket
+    start_date: Optional[date] = None
+    due_date: Optional[date] = None
 
 class AdminTicketUpdate(BaseModel):
     epic_id: Optional[int] = None
@@ -368,6 +387,10 @@ class AdminTicketUpdate(BaseModel):
     description: Optional[str] = None
     status: Optional[str] = None
     priority: Optional[str] = None
+    assignee: Optional[str] = None
+    reporter: Optional[str] = None  # Email of user who created/assigned the ticket
+    start_date: Optional[date] = None
+    due_date: Optional[date] = None
 
 class AdminTicketOut(BaseModel):
     admin_ticket_id: int
@@ -380,6 +403,10 @@ class AdminTicketOut(BaseModel):
     description: Optional[str] = None
     status: str
     priority: str
+    assignee: Optional[str] = None
+    reporter: Optional[str] = None  # Email of user who created/assigned the ticket
+    start_date: Optional[date] = None
+    due_date: Optional[date] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 

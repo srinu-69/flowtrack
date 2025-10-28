@@ -1028,7 +1028,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { listUsers, addUser, updateUser, deleteUser } from '../../services/userApi';
-import { getUsersFromManagement, updateUserProfile, createUserProfile, getUserProfileByEmail } from '../../services/userProfileApi';
+import { getUsersFromManagement, updateUserProfile, createUserProfile, getUserProfileByEmail, deleteUserFromManagement } from '../../services/userProfileApi';
 import { v4 as uuidv4 } from 'uuid';
 import {
   FiUserPlus, FiEdit2, FiTrash2, FiCheck, FiX, FiSearch,
@@ -1040,7 +1040,7 @@ const DEPARTMENTS_KEY = 'user-management-departments';
 
 const defaultRoles = [
   "Associate Developer",
-  "Senior Develooper",
+  "Senior Developer",
   "HR",
   "Administration"
 ];
@@ -1276,9 +1276,31 @@ export default function Users() {
 
   const remove = async (id) => {
     try {
-      await deleteUser(id);
-      const updatedUsers = await listUsers();
-      setUsers(updatedUsers);
+      // Delete from users_management table (admin portal uses this table)
+      await deleteUserFromManagement(id);
+      
+      // Refresh the users list from users_management table
+      const realUsers = await getUsersFromManagement();
+      const transformedUsers = realUsers.map(user => ({
+        id: user.id.toString(),
+        firstName: user.first_name,
+        lastName: user.last_name,
+        name: `${user.first_name} ${user.last_name}`.trim(),
+        email: user.email,
+        role: user.role,
+        department: user.department,
+        active: user.active,
+        language: user.language || 'English',
+        mobileNumber: user.mobile_number,
+        dateFormat: user.date_format || 'YYYY-MM-DD',
+        passwordResetNeeded: user.password_reset_needed,
+        profileFile: user.profile_file_name ? {
+          name: user.profile_file_name,
+          size: user.profile_file_size
+        } : null
+      }));
+      
+      setUsers(transformedUsers);
       setError(null);
     } catch (err) {
       console.error('Failed to delete user:', err);

@@ -16,7 +16,7 @@ import Backlog from './components/backlog/Backlog';
 import IssueDetails from './components/issues/IssueDetails';
 import IssueCreate from './components/issues/IssueCreate';
 import Assets from './components/assets/Assets';
-import Timeline from './components/timeline/Timeline';
+// import Timeline from './components/timeline/Timeline'; // Commented out - Timeline removed from sidebar
 import ForYou from './components/dashboard/ForYou';
 import Notifications from './components/notifications/Notifications';
 import { FiMenu } from 'react-icons/fi';
@@ -232,7 +232,7 @@ function Layout() {
     { path: '/projects', label: 'Projects', icon: '📁' },
     { path: boardPath, label: 'Boards', icon: '📊' }, // Use the dynamic path
     { path: '/assets', label: 'Assets', icon: '🖼️' },
-    { path: '/timeline', label: 'Timeline', icon: '📅' },
+    // { path: '/timeline', label: 'Timeline', icon: '📅' }, // Commented out - Timeline removed from sidebar
     { path: '/users', label: 'Profile', icon: '👥' },
   ];
 
@@ -327,7 +327,7 @@ function Layout() {
             <Route path="/issues/new" element={<IssueCreate />} />
             <Route path="/issues/:id" element={<IssueDetails />} />
             <Route path="/assets" element={<Assets />} />
-            <Route path="/timeline" element={<Timeline />} />
+            {/* <Route path="/timeline" element={<Timeline />} /> */} {/* Commented out - Timeline removed from sidebar */}
             <Route path="/users" element={<Users />} />
             <Route path="/notifications" element={<Notifications />} />
             <Route path="/for-you" element={<ForYou />} />

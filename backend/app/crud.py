@@ -347,6 +347,10 @@ async def create_ticket(session: AsyncSession, ticket_in: schemas.TicketCreate) 
         description=ticket_in.description,
         status=ticket_in.status,
         priority=ticket_in.priority,
+        assignee=ticket_in.assignee,
+        reporter=ticket_in.reporter,
+        start_date=ticket_in.start_date,
+        due_date=ticket_in.due_date
     )
     session.add(ticket)
     await session.commit()
@@ -384,6 +388,14 @@ async def update_ticket(session: AsyncSession, ticket_id: int, ticket_in: schema
         ticket.status = ticket_in.status
     if ticket_in.priority is not None:
         ticket.priority = ticket_in.priority
+    if ticket_in.assignee is not None:
+        ticket.assignee = ticket_in.assignee
+    if ticket_in.reporter is not None:
+        ticket.reporter = ticket_in.reporter
+    if ticket_in.start_date is not None:
+        ticket.start_date = ticket_in.start_date
+    if ticket_in.due_date is not None:
+        ticket.due_date = ticket_in.due_date
     
     await session.commit()
     await session.refresh(ticket)
@@ -419,11 +431,35 @@ async def get_project(session: AsyncSession, project_id: int) -> Optional[models
     res = await session.execute(q)
     return res.scalars().first()
 
-async def list_projects(session: AsyncSession) -> List[models.Project]:
-    """List all projects"""
+async def list_projects(session: AsyncSession, user_email: Optional[str] = None) -> List[models.Project]:
+    """List projects, optionally filtered by user email (as lead or team member)"""
     q = select(models.Project).order_by(models.Project.created_at.desc())
     res = await session.execute(q)
-    return res.scalars().all()
+    projects = res.scalars().all()
+    
+    # If user_email is provided, filter projects where user is lead OR team member
+    if user_email:
+        filtered_projects = []
+        for project in projects:
+            # Check if user is in leads
+            is_lead = False
+            if project.leads:
+                lead_emails = [email.strip() for email in project.leads.split(',') if email.strip()]
+                is_lead = user_email in lead_emails
+            
+            # Check if user is in team_members
+            is_team_member = False
+            if project.team_members:
+                team_emails = [email.strip() for email in project.team_members.split(',') if email.strip()]
+                is_team_member = user_email in team_emails
+            
+            # Include project if user is either lead or team member
+            if is_lead or is_team_member:
+                filtered_projects.append(project)
+        
+        return filtered_projects
+    
+    return projects
 
 async def update_project(session: AsyncSession, project_id: int, project_in: schemas.ProjectUpdate) -> Optional[models.Project]:
     """Update a project"""
@@ -439,6 +475,8 @@ async def update_project(session: AsyncSession, project_id: int, project_in: sch
         project.project_type = project_in.project_type
     if project_in.leads is not None:
         project.leads = project_in.leads
+    if project_in.team_members is not None:
+        project.team_members = project_in.team_members
     if project_in.description is not None:
         project.description = project_in.description
 
@@ -447,10 +485,43 @@ async def update_project(session: AsyncSession, project_id: int, project_in: sch
     return project
 
 async def delete_project(session: AsyncSession, project_id: int) -> bool:
-    """Delete a project"""
+    """Delete a project and all associated epics and tickets (cascade delete)"""
+    from sqlalchemy import delete
+    
     project = await get_project(session, project_id)
     if not project:
         return False
+    
+    # Delete associated admin_tickets first
+    await session.execute(
+        delete(models.AdminTicket).where(models.AdminTicket.project_id == project_id)
+    )
+    
+    # Delete associated admin_epics
+    await session.execute(
+        delete(models.AdminEpic).where(models.AdminEpic.project_id == project_id)
+    )
+    
+    # Delete associated tickets (if you have a project_id column in tickets table)
+    # Note: Currently tickets don't have project_id directly, so we need to delete by epic_id
+    # First, get all epic IDs for this project
+    epics_result = await session.execute(
+        select(models.Epic.id).where(models.Epic.project_id == project_id)
+    )
+    epic_ids = [row[0] for row in epics_result.all()]
+    
+    # Delete tickets associated with these epics (from admin_tickets by epic_id)
+    if epic_ids:
+        await session.execute(
+            delete(models.AdminTicket).where(models.AdminTicket.epic_id.in_(epic_ids))
+        )
+    
+    # Delete associated epics
+    await session.execute(
+        delete(models.Epic).where(models.Epic.project_id == project_id)
+    )
+    
+    # Finally, delete the project itself
     await session.delete(project)
     await session.commit()
     return True
@@ -791,7 +862,11 @@ async def create_admin_ticket(session: AsyncSession, admin_ticket_in: schemas.Ad
         title=admin_ticket_in.title,
         description=admin_ticket_in.description,
         status=admin_ticket_in.status,
-        priority=admin_ticket_in.priority
+        priority=admin_ticket_in.priority,
+        assignee=admin_ticket_in.assignee,
+        reporter=admin_ticket_in.reporter,
+        start_date=admin_ticket_in.start_date,
+        due_date=admin_ticket_in.due_date
     )
     session.add(admin_ticket)
     await session.commit()
@@ -844,6 +919,14 @@ async def update_admin_ticket(session: AsyncSession, admin_ticket_id: int, admin
         admin_ticket.status = admin_ticket_in.status
     if admin_ticket_in.priority is not None:
         admin_ticket.priority = admin_ticket_in.priority
+    if admin_ticket_in.assignee is not None:
+        admin_ticket.assignee = admin_ticket_in.assignee
+    if admin_ticket_in.reporter is not None:
+        admin_ticket.reporter = admin_ticket_in.reporter
+    if admin_ticket_in.start_date is not None:
+        admin_ticket.start_date = admin_ticket_in.start_date
+    if admin_ticket_in.due_date is not None:
+        admin_ticket.due_date = admin_ticket_in.due_date
     
     await session.commit()
     await session.refresh(admin_ticket)

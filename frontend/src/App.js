@@ -958,10 +958,10 @@ import Backlog from './components/backlog/Backlog';
 import IssueDetails from './components/issues/IssueDetails';
 import IssueCreate from './components/issues/IssueCreate';
 import Assets from './components/assets/Assets';
-import Timeline from './components/timeline/Timeline';
+// import Timeline from './components/timeline/Timeline'; // Commented out - Timeline removed from sidebar
 import ForYou from './components/dashboard/ForYou';
 import Notifications from './components/notifications/Notifications';
-import { FiMenu, FiLogOut, FiUser, FiX, FiHome, FiList, FiGrid, FiBriefcase, FiClock } from 'react-icons/fi';
+import { FiMenu, FiLogOut, FiUser, FiX, FiHome, FiList, FiGrid, FiBriefcase /*, FiClock */ } from 'react-icons/fi';
 
 // PrivateRoute: Only allows authenticated users
 function PrivateRoute({ children }) {
@@ -1090,7 +1090,7 @@ function Layout() {
       icon: <FiGrid />,
     },
     { path: '/assets', label: 'Assets', icon: <FiList /> },
-    { path: '/timeline', label: 'Timeline', icon: <FiClock /> },
+    // { path: '/timeline', label: 'Timeline', icon: <FiClock /> }, // Commented out - Timeline removed from sidebar
     { path: '/users', label: 'Profile', icon: <FiUser /> },
 
   ];
@@ -1426,7 +1426,7 @@ function Layout() {
             <Route path="/issues/new" element={<IssueCreate />} />
             <Route path="/issues/:id" element={<IssueDetails />} />
             <Route path="/assets" element={<Assets />} />
-            <Route path="/timeline" element={<Timeline />} />
+            {/* <Route path="/timeline" element={<Timeline />} /> */} {/* Commented out - Timeline removed from sidebar */}
             <Route path="/users" element={<Users />} />
             <Route path="/users" element={<Users />} />
             <Route path="/notifications" element={<Notifications />} />

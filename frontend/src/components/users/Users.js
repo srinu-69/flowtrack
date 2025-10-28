@@ -1449,7 +1449,7 @@ const DEPARTMENTS_KEY = "user-management-departments";
 
 const defaultRoles = [
   "Associate Developer",
-  "Senior Develooper",
+  "Senior Developer",
   "HR",
   "Administration"
 ];
@@ -1647,8 +1647,15 @@ export default function Users() {
   const [newUserForm, setNewUserForm] = useState(defaultNewUser);
   const [error, setError] = useState(null);
   const [successMessage, setSuccessMessage] = useState(null);
-  const [roles, setRoles] = useState(defaultRoles);
-  const [departments, setDepartments] = useState(defaultDepartments);
+  // Clear any cached localStorage with old typo values
+  const [roles, setRoles] = useState(() => {
+    localStorage.removeItem(ROLES_KEY);
+    return defaultRoles;
+  });
+  const [departments, setDepartments] = useState(() => {
+    localStorage.removeItem(DEPARTMENTS_KEY);
+    return defaultDepartments;
+  });
 
 
   // Load user's existing profile if they're logged in
@@ -1664,16 +1671,16 @@ export default function Users() {
 
           const profile = await getUserProfile(user.email);
           if (profile) {
-            // Pre-fill form with existing profile data
+            // Pre-fill form with existing profile data from user_profile table
             setNewUserForm({
-              firstName: profile.first_name || "",
+              firstName: profile.full_name || "", // Backend returns full_name
               email: profile.email || "",
               role: profile.role || defaultRoles[0],
               department: profile.department || defaultDepartments[0],
-              active: profile.active !== undefined ? profile.active : true,
+              active: profile.user_status === "Active", // Map user_status to active
               mobileNumber: profile.mobile_number || "",
-              dateOfBirth: "",
-              passwordResetNeeded: profile.password_reset_needed || false,
+              dateOfBirth: profile.date_of_birth || "", // Backend returns date_of_birth
+              passwordResetNeeded: false,
               profileFile: null,
             });
             console.log('Profile loaded successfully:', profile.email);
@@ -1726,20 +1733,15 @@ export default function Users() {
       return;
     }
     try {
-      // Save to users_management table (real database)
+      // Transform data to match user_profile table schema
       const profileData = {
-        first_name: newUserForm.firstName.trim(),
-        last_name: "", // Not collected in current form
+        full_name: newUserForm.firstName.trim(), // Map firstName to full_name
         email: newUserForm.email.trim(),
         role: newUserForm.role,
         department: newUserForm.department,
-        active: newUserForm.active,
-        language: "English",
-        mobile_number: newUserForm.mobileNumber || null,
-        date_format: "YYYY-MM-DD",
-        password_reset_needed: newUserForm.passwordResetNeeded,
-        profile_file_name: newUserForm.profileFile?.name || null,
-        profile_file_size: newUserForm.profileFile?.size || null,
+        mobile_number: newUserForm.mobileNumber?.trim() || null,
+        date_of_birth: newUserForm.dateOfBirth?.trim() ? newUserForm.dateOfBirth.trim() : null, // Map to date_of_birth, null if empty
+        user_status: "Active" // Map active to user_status
       };
       
       await saveUserProfile(profileData);

@@ -153,6 +153,7 @@ class Project(Base):
     project_key = Column(String(50), nullable=False, unique=True)
     project_type = Column(String(100), default='Software', nullable=False)
     leads = Column(Text, nullable=True)  # Comma-separated list of user emails
+    team_members = Column(Text, nullable=True)  # Comma-separated list of team member emails
     description = Column(Text, nullable=True)
     created_at = Column(TIMESTAMP, server_default=func.now())
     updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())
@@ -175,6 +176,10 @@ class Ticket(Base):
     description = Column(Text, nullable=True)
     status = Column(String(50), default='Open', nullable=False)
     priority = Column(String(50), default='Medium', nullable=False)
+    assignee = Column(String(255), nullable=True)  # Assigned user email
+    reporter = Column(String(255), nullable=True)  # Email of user who created/assigned the ticket
+    start_date = Column(Date, nullable=True)  # Task start date
+    due_date = Column(Date, nullable=True)  # Task due date
     created_at = Column(TIMESTAMP, server_default=func.now())
     updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())
 
@@ -203,5 +208,9 @@ class AdminTicket(Base):
     description = Column(Text, nullable=True)
     status = Column(String(50), default='Open', nullable=False)
     priority = Column(String(50), default='Medium', nullable=False)
+    assignee = Column(String(255), nullable=True)  # Assigned user email
+    reporter = Column(String(255), nullable=True)  # Email of user who created/assigned the ticket
+    start_date = Column(Date, nullable=True)  # Task start date
+    due_date = Column(Date, nullable=True)  # Task due date
     created_at = Column(TIMESTAMP, server_default=func.now())
     updated_at = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())

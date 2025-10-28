@@ -79,8 +79,10 @@
 #         raise HTTPException(status_code=404, detail="Asset not found")
 #     return None
 
-from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi import FastAPI, Depends, HTTPException, status, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from fastapi.exceptions import RequestValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List, Optional
 import logging
@@ -101,6 +103,17 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Add validation error handler
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    logger.error(f"Validation error on {request.method} {request.url.path}")
+    logger.error(f"Validation errors: {exc.errors()}")
+    logger.error(f"Request body: {await request.body()}")
+    return JSONResponse(
+        status_code=422,
+        content={"detail": exc.errors()}
+    )
 
 # Create tables on startup
 @app.on_event("startup")
@@ -434,7 +447,11 @@ async def create_ticket(ticket_in: schemas.TicketCreate, epic_id: Optional[int] 
                 title=created_ticket.title,
                 description=created_ticket.description,
                 status=created_ticket.status,
-                priority=created_ticket.priority
+                priority=created_ticket.priority,
+                assignee=created_ticket.assignee,
+                reporter=created_ticket.reporter,  # ✅ Include reporter field
+                start_date=created_ticket.start_date,
+                due_date=created_ticket.due_date
             )
             await crud.create_admin_ticket(db, admin_ticket_data)
             logger.info(f"Admin ticket created successfully for ticket_id: {created_ticket.id}")
@@ -469,7 +486,11 @@ async def update_ticket(ticket_id: int, ticket_in: schemas.TicketUpdate, db: Asy
                 title=ticket_in.title,
                 description=ticket_in.description,
                 status=ticket_in.status,
-                priority=ticket_in.priority
+                priority=ticket_in.priority,
+                assignee=ticket_in.assignee,
+                reporter=ticket_in.reporter,  # ✅ Include reporter field
+                start_date=ticket_in.start_date,
+                due_date=ticket_in.due_date
             )
             await crud.update_admin_ticket(db, admin_ticket.admin_ticket_id, admin_ticket_update)
             logger.info(f"Updated admin_ticket for ticket_id: {ticket_id}")
@@ -505,11 +526,11 @@ async def delete_ticket(ticket_id: int, db: AsyncSession = Depends(get_db)):
 
 # --- Project Routes ---
 @app.get("/projects", response_model=List[schemas.ProjectOut])
-async def read_projects(db: AsyncSession = Depends(get_db)):
-    """Get all projects"""
+async def read_projects(user_email: Optional[str] = None, db: AsyncSession = Depends(get_db)):
+    """Get all projects, optionally filtered by user_email (leads or team_members)"""
     try:
-        logger.info("Fetching projects")
-        projects = await crud.list_projects(db)
+        logger.info(f"Fetching projects for user_email: {user_email}")
+        projects = await crud.list_projects(db, user_email)
         logger.info(f"Found {len(projects)} projects")
         return projects
     except Exception as e:
@@ -601,11 +622,28 @@ async def create_epic(epic_in: schemas.EpicCreate, user_name: Optional[str] = No
 
 @app.delete("/epics/{epic_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_epic(epic_id: int, db: AsyncSession = Depends(get_db)):
-    """Delete an epic"""
-    success = await crud.delete_epic(db, epic_id)
-    if not success:
-        raise HTTPException(status_code=404, detail="Epic not found")
-    return None
+    """Delete an epic and its corresponding admin epic (bidirectional sync)"""
+    try:
+        # Delete from epics table
+        success = await crud.delete_epic(db, epic_id)
+        if not success:
+            raise HTTPException(status_code=404, detail="Epic not found")
+        
+        # Also delete the corresponding admin_epic for bidirectional sync
+        try:
+            admin_epic = await crud.get_admin_epic_by_epic_id(db, epic_id)
+            if admin_epic:
+                await crud.delete_admin_epic(db, admin_epic.admin_epic_id)
+                logger.info(f"Deleted admin_epic for epic_id: {epic_id}")
+        except Exception as admin_err:
+            logger.error(f"Failed to delete admin epic (non-critical): {admin_err}")
+        
+        return None
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error deleting epic: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 # --- UsersManagement Routes (User Frontend Profile Data) ---
 @app.get("/users-management", response_model=List[schemas.UsersManagementOut])
@@ -630,7 +668,7 @@ async def get_users_management_by_email(email: str, db: AsyncSession = Depends(g
 
 @app.post("/users-management", response_model=schemas.UsersManagementOut, status_code=status.HTTP_201_CREATED)
 async def create_users_management(user_in: schemas.UsersManagementCreate, db: AsyncSession = Depends(get_db)):
-    """Create a new user in users_management table (from user frontend)"""
+    """Create a new user in users_management table - Auto-syncs to user_profile"""
     try:
         logger.info(f"Creating user in users_management: {user_in.email}")
         # Check if user already exists
@@ -640,6 +678,24 @@ async def create_users_management(user_in: schemas.UsersManagementCreate, db: As
         
         created_user = await crud.create_users_management(db, user_in)
         logger.info(f"User created successfully in users_management: {created_user.id}")
+        
+        # Auto-sync to user_profile table for consistency
+        try:
+            profile_data = schemas.UserProfileCreate(
+                full_name=f"{user_in.first_name} {user_in.last_name}".strip(),
+                email=user_in.email,
+                role=user_in.role,
+                department=user_in.department,
+                mobile_number=user_in.mobile_number,
+                date_of_birth=None,
+                user_status="Active" if user_in.active else "Inactive"
+            )
+            await crud.create_user_profile(db, profile_data)
+            logger.info(f"Successfully synced to user_profile table")
+        except Exception as sync_error:
+            logger.warning(f"Failed to sync to user_profile (non-critical): {sync_error}")
+            # Continue - the main user was created successfully
+        
         return created_user
     except HTTPException:
         raise
@@ -649,19 +705,74 @@ async def create_users_management(user_in: schemas.UsersManagementCreate, db: As
 
 @app.put("/users-management/{user_id}", response_model=schemas.UsersManagementOut)
 async def update_users_management(user_id: int, user_in: schemas.UsersManagementUpdate, db: AsyncSession = Depends(get_db)):
-    """Update a user in users_management table"""
+    """Update a user in users_management table - Auto-syncs to user_profile"""
     updated_user = await crud.update_users_management(db, user_id, user_in)
     if not updated_user:
         raise HTTPException(status_code=404, detail="User not found")
+    
+    # Auto-sync to user_profile table (bidirectional sync)
+    try:
+        user_profile = await crud.get_user_profile_by_email(db, updated_user.email)
+        if user_profile:
+            # Update user_profile with the data from users_management
+            profile_update = schemas.UserProfileUpdate(
+                full_name=f"{updated_user.first_name} {updated_user.last_name}".strip(),
+                role=updated_user.role,
+                department=updated_user.department,
+                mobile_number=updated_user.mobile_number,
+                user_status="Active" if updated_user.active else "Inactive"
+            )
+            await crud.update_user_profile(db, user_profile.user_id, profile_update)
+            logger.info(f"Successfully synced update to user_profile table")
+    except Exception as sync_error:
+        logger.warning(f"Failed to sync to user_profile (non-critical): {sync_error}")
+    
     return updated_user
 
 @app.delete("/users-management/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_users_management(user_id: int, db: AsyncSession = Depends(get_db)):
-    """Delete a user from users_management table"""
-    success = await crud.delete_users_management(db, user_id)
-    if not success:
-        raise HTTPException(status_code=404, detail="User not found")
-    return None
+    """Delete a user from ALL tables: users_management, user_profile, AND users (complete sync)"""
+    try:
+        # Get the user first to find their email
+        user = await crud.get_users_management_by_id(db, user_id)
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        user_email = user.email
+        
+        # 1. Delete from users_management table
+        success = await crud.delete_users_management(db, user_id)
+        if not success:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        logger.info(f"✓ Deleted from users_management: {user_email}")
+        
+        # 2. Delete from user_profile table
+        try:
+            user_profile = await crud.get_user_profile_by_email(db, user_email)
+            if user_profile:
+                await crud.delete_user_profile(db, user_profile.user_id)
+                logger.info(f"✓ Deleted from user_profile table")
+        except Exception as sync_error:
+            logger.warning(f"Failed to delete from user_profile: {sync_error}")
+        
+        # 3. Delete from users table (authentication)
+        try:
+            auth_user = await crud.get_user_by_email(db, user_email)
+            if auth_user:
+                await db.delete(auth_user)
+                await db.commit()
+                logger.info(f"✓ Deleted from users table (authentication)")
+        except Exception as sync_error:
+            logger.warning(f"Failed to delete from users table: {sync_error}")
+        
+        logger.info(f"🎉 User completely deleted from all tables: {user_email}")
+        return None
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error deleting user: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 # --- UserProfile Routes (Admin Portal Profile Data) ---
 @app.get("/user-profiles", response_model=List[schemas.UserProfileOut])
@@ -686,21 +797,53 @@ async def get_user_profile_by_email(email: str, db: AsyncSession = Depends(get_d
 
 @app.post("/user-profiles", response_model=schemas.UserProfileOut, status_code=status.HTTP_201_CREATED)
 async def create_user_profile(profile_in: schemas.UserProfileCreate, db: AsyncSession = Depends(get_db)):
-    """Create a new user profile (from admin portal)"""
+    """Create a new user profile (from user frontend) - Auto-syncs to users_management"""
     try:
         logger.info(f"Creating user profile: {profile_in.email}")
-        # Check if profile already exists
+        logger.info(f"Profile data: full_name={profile_in.full_name}, role={profile_in.role}, department={profile_in.department}")
+        
+        # Check if profile already exists in user_profile
         existing_profile = await crud.get_user_profile_by_email(db, profile_in.email)
         if existing_profile:
             raise HTTPException(status_code=400, detail="User profile with this email already exists")
         
+        # Create in user_profile table
         created_profile = await crud.create_user_profile(db, profile_in)
         logger.info(f"User profile created successfully: {created_profile.user_id}")
+        
+        # Auto-sync to users_management table for admin portal visibility
+        try:
+            # Split full_name into first_name and last_name
+            name_parts = profile_in.full_name.strip().split(' ', 1)
+            first_name = name_parts[0]
+            last_name = name_parts[1] if len(name_parts) > 1 else ""
+            
+            users_mgmt_data = schemas.UsersManagementCreate(
+                first_name=first_name,
+                last_name=last_name,
+                email=profile_in.email,
+                role=profile_in.role,
+                department=profile_in.department,
+                active=(profile_in.user_status == "Active"),
+                language="English",
+                mobile_number=profile_in.mobile_number,
+                date_format="YYYY-MM-DD",
+                password_reset_needed=False,
+                profile_file_name=None,
+                profile_file_size=None
+            )
+            await crud.create_users_management(db, users_mgmt_data)
+            logger.info(f"Successfully synced to users_management table")
+        except Exception as sync_error:
+            logger.warning(f"Failed to sync to users_management (non-critical): {sync_error}")
+            # Continue - the main profile was created successfully
+        
         return created_profile
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error creating user profile: {e}")
+        logger.error(f"Exception type: {type(e).__name__}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.put("/user-profiles/{user_id}", response_model=schemas.UserProfileOut)
@@ -742,11 +885,48 @@ async def update_user_profile(user_id: int, profile_in: schemas.UserProfileUpdat
 
 @app.delete("/user-profiles/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_user_profile(user_id: int, db: AsyncSession = Depends(get_db)):
-    """Delete a user profile"""
-    success = await crud.delete_user_profile(db, user_id)
-    if not success:
-        raise HTTPException(status_code=404, detail="User profile not found")
-    return None
+    """Delete a user profile from ALL tables: user_profile, users_management, AND users (complete sync)"""
+    try:
+        # Get the profile first to find their email
+        profile = await crud.get_user_profile_by_id(db, user_id)
+        if not profile:
+            raise HTTPException(status_code=404, detail="User profile not found")
+        
+        user_email = profile.email
+        
+        # 1. Delete from user_profile table
+        success = await crud.delete_user_profile(db, user_id)
+        if not success:
+            raise HTTPException(status_code=404, detail="User profile not found")
+        
+        logger.info(f"✓ Deleted from user_profile: {user_email}")
+        
+        # 2. Delete from users_management table
+        try:
+            users_mgmt = await crud.get_users_management_by_email(db, user_email)
+            if users_mgmt:
+                await crud.delete_users_management(db, users_mgmt.id)
+                logger.info(f"✓ Deleted from users_management table")
+        except Exception as sync_error:
+            logger.warning(f"Failed to delete from users_management: {sync_error}")
+        
+        # 3. Delete from users table (authentication)
+        try:
+            auth_user = await crud.get_user_by_email(db, user_email)
+            if auth_user:
+                await db.delete(auth_user)
+                await db.commit()
+                logger.info(f"✓ Deleted from users table (authentication)")
+        except Exception as sync_error:
+            logger.warning(f"Failed to delete from users table: {sync_error}")
+        
+        logger.info(f"🎉 User completely deleted from all tables: {user_email}")
+        return None
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error deleting user profile: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 # --- AdminEpic Routes (For Admin Portal Boards) ---
 @app.get("/admin/epics", response_model=List[schemas.AdminEpicOut])
@@ -821,7 +1001,11 @@ async def update_admin_ticket(admin_ticket_id: int, admin_ticket_in: schemas.Adm
                 title=admin_ticket_in.title,
                 description=admin_ticket_in.description,
                 status=admin_ticket_in.status,
-                priority=admin_ticket_in.priority
+                priority=admin_ticket_in.priority,
+                assignee=admin_ticket_in.assignee,
+                reporter=admin_ticket_in.reporter,  # ✅ Include reporter field
+                start_date=admin_ticket_in.start_date,
+                due_date=admin_ticket_in.due_date
             )
             await crud.update_ticket(db, updated.ticket_id, ticket_update_data)
             logger.info(f"Updated original ticket ID: {updated.ticket_id}")

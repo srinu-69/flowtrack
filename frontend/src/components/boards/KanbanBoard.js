@@ -141,13 +141,13 @@ const listIssues = async (projectId) => {
           status: mappedStatus,
           type: 'Task',
           title: ticket.title,
-          assignee: '',
+          assignee: ticket.assignee || '',       // ✅ Load assignee from backend
           storyPoints: '',
           labels: [],
-          dueDate: '',
-          reporter: 'user',
+          dueDate: ticket.due_date || '',        // Load due_date from backend
+          reporter: ticket.reporter || '',  // ✅ Empty string for old tickets (will be set on first save)
           priority: ticket.priority,
-          startDate: ticket.created_at ? ticket.created_at.split('T')[0] : '',
+          startDate: ticket.start_date || '',    // Load start_date from backend
           description: cleanDescription,
           subtasks: [],
           comments: ''
@@ -164,9 +164,12 @@ const listIssues = async (projectId) => {
   return []; // Return empty array for specific projects to avoid showing wrong data
 };
 
-const listProjects = async () => {
+const listProjects = async (userEmail = null) => {
   try {
-    const response = await fetch('http://localhost:8000/projects');
+    const url = userEmail 
+      ? `http://localhost:8000/projects?user_email=${encodeURIComponent(userEmail)}`
+      : 'http://localhost:8000/projects';
+    const response = await fetch(url);
     if (response.ok) {
       const projects = await response.json();
       return projects;
@@ -366,6 +369,10 @@ const createIssueAPI = async (issue, projectId, userName) => {
         description: description,
         status: 'Open',
         priority: issue.priority || 'Medium',
+        assignee: issue.assignee || null,      // Include assignee
+        reporter: issue.reporter || null,      // Include reporter
+        start_date: issue.startDate || null,  // Include start date
+        due_date: issue.dueDate || null        // Include due date
       }),
     });
     if (!response.ok) {
@@ -373,6 +380,7 @@ const createIssueAPI = async (issue, projectId, userName) => {
       console.error('Ticket creation failed:', errorData);
       throw new Error(`Failed to create ticket: ${errorData}`);
     }
+    console.log('Ticket created with dates');
     return await response.json();
   } catch (error) {
     console.error('Error creating ticket:', error);
@@ -439,11 +447,16 @@ const updateIssueAPI = async (updatedIssue) => {
         description: description,
         status: backendStatus,
         priority: updatedIssue.priority,
+        assignee: updatedIssue.assignee || null,      // Include assignee
+        reporter: updatedIssue.reporter || null,      // Include reporter
+        start_date: updatedIssue.startDate || null,  // Include start date
+        due_date: updatedIssue.dueDate || null        // Include due date
       }),
     });
     if (!response.ok) {
       throw new Error('Failed to update ticket');
     }
+    console.log('Ticket updated with dates:', updatedIssue.id);
     return await response.json();
   } catch (error) {
     console.error('Error updating ticket:', error);
@@ -486,6 +499,7 @@ export default function KanbanBoard() {
   const [columnsByLane, setColumnsByLane] = useState({});
   const [profileFile, setProfileFile] = useState(null);
   const [hoveredAssigneeId, setHoveredAssigneeId] = useState(null);
+  const [selectedProjectFilter, setSelectedProjectFilter] = useState(null); // Project filter dropdown
 
   // Handler for file input changes
   const handleNewUserChange = (event) => {
@@ -510,25 +524,20 @@ export default function KanbanBoard() {
       try {
         setLoading(true);
         
-        // First, load all projects
-        const projectsData = await listProjects();
-        setProjects(projectsData);
-        
         // Get current user email
         const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
         const userEmail = currentUser.email;
         
         console.log('User portal: Current user email:', userEmail);
-        console.log('User portal: Available projects:', projectsData.map(p => ({ name: p.name, leads: p.leads })));
         
-        // Find ALL projects where the user is a lead (not just one!)
-        let userProjects = [];
-        if (userEmail) {
-          userProjects = projectsData.filter(p => 
-            p.leads && p.leads.toLowerCase().includes(userEmail.toLowerCase())
-          );
-          console.log('User portal: User is assigned to', userProjects.length, 'projects:', userProjects.map(p => p.name));
-        }
+        // Fetch projects for this user (as lead OR team member) - backend filters automatically
+        const projectsData = await listProjects(userEmail);
+        setProjects(projectsData);
+        
+        console.log('User portal: Available projects (lead or team member):', projectsData.map(p => ({ name: p.name, leads: p.leads, team_members: p.team_members })));
+        
+        // All projects in projectsData are now user's projects (no need to filter again)
+        let userProjects = projectsData;
         
         // Set first project as current (for display name), but load data from ALL projects
         const project = userProjects.length > 0 ? userProjects[0] : null;
@@ -547,25 +556,46 @@ export default function KanbanBoard() {
           
           // Filter to only show epics and tickets from user's assigned projects
           const userProjectIds = userProjects.map(p => p.id);
+          const validProjectIdsSet = new Set(userProjectIds); // Create Set for faster lookup
+          
           console.log('User portal: User project IDs:', userProjectIds);
           console.log('User portal: Total epics fetched:', epicsData.length);
           console.log('User portal: Epic details BEFORE filtering:', epicsData.map(e => ({ id: e.id, name: e.name, projectId: e.projectId })));
           
-          // Filter epics to only those belonging to user's projects
+          // Filter epics to only those belonging to user's projects (remove orphaned epics)
           const filteredEpics = epicsData.filter(epic => {
-            const hasProjectId = epic.projectId !== undefined && epic.projectId !== null;
-            const isInUserProjects = hasProjectId && userProjectIds.includes(epic.projectId);
-            console.log(`User portal: Epic '${epic.name}' (id: ${epic.id}, projectId: ${epic.projectId}) - hasProjectId: ${hasProjectId}, isInUserProjects: ${isInUserProjects}`);
+            // Remove epics without projectId
+            if (!epic.projectId) {
+              console.warn('User portal: Epic without projectId found:', epic);
+              return false;
+            }
+            // Remove epics whose projects don't exist in user's projects
+            const isInUserProjects = validProjectIdsSet.has(epic.projectId);
+            if (!isInUserProjects) {
+              console.warn('User portal: Removing epic from non-user project:', epic.id, epic.name, 'Project ID:', epic.projectId);
+            }
             return isInUserProjects;
           });
           epicsData = filteredEpics;
           console.log('User portal: Filtered to', epicsData.length, 'epics from user projects:', epicsData.map(e => e.name));
           
-          // Filter tickets to only those belonging to user's project epics
+          // Filter tickets to only those belonging to user's project epics (remove orphaned tickets)
           const userEpicIds = epicsData.map(e => e.id);
-          issuesData = issuesData.filter(ticket => 
-            ticket.epic && userEpicIds.includes(ticket.epic)
-          );
+          const validEpicIdsSet = new Set(userEpicIds); // Create Set for faster lookup
+          
+          const filteredIssues = issuesData.filter(ticket => {
+            if (!ticket.epic && !ticket.projectId) {
+              console.warn('User portal: Ticket without epic/projectId found:', ticket);
+              return false;
+            }
+            const epicId = ticket.epic || ticket.projectId;
+            const isValid = validEpicIdsSet.has(epicId);
+            if (!isValid) {
+              console.warn('User portal: Removing orphaned ticket:', ticket.id, ticket.title, 'Epic ID:', epicId);
+            }
+            return isValid;
+          });
+          issuesData = filteredIssues;
           console.log('User portal: Filtered to', issuesData.length, 'tickets from user epics');
         } else {
           // If no projects assigned, show empty
@@ -765,6 +795,11 @@ export default function KanbanBoard() {
   const handleCreateClick = laneId => { setCreateLaneId(laneId); setNewTaskText(''); setNewTaskType('Task'); };
   const handleCreateSubmit = async lane => {
     if (!newTaskText.trim()) { alert('Task title is required'); return; }
+    
+    // Get current user email as reporter
+    const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+    const reporterEmail = currentUser.email || 'system';
+    
     const newIssue = {
       id: Math.random().toString(36).slice(2),
       epic: lane.id,
@@ -777,7 +812,7 @@ export default function KanbanBoard() {
       storyPoints: '',
       labels: [],
       dueDate: '',
-      reporter: 'system',
+      reporter: reporterEmail,  // Set to current user's email
       priority: 'Medium',
       startDate: new Date().toISOString().split('T')[0],
       description: '',
@@ -793,6 +828,8 @@ export default function KanbanBoard() {
   };
 
   const handleIssueClick = (issue) => {
+    // Don't auto-change reporter when just opening - preserve existing value
+    // The reporter should remain whoever originally assigned/created the ticket
     setSelectedIssue(issue);
     setEditIssue({ ...issue });
     setNewSubtaskText('');
@@ -804,8 +841,46 @@ export default function KanbanBoard() {
     });
   };
 
+  // Helper function to get all assignable users (lead + team members) for an issue
+  const getAssignableUsers = (issue) => {
+    if (!issue || !issue.epic) return [];
+    
+    // Find the epic this issue belongs to
+    const epic = epics.find(e => e.id === issue.epic);
+    if (!epic || !epic.projectId) return [];
+    
+    // Find the project this epic belongs to
+    const project = projects.find(p => p.id === epic.projectId);
+    if (!project) return [];
+    
+    // Collect all assignable users (lead + team members)
+    const assignableUsers = [];
+    
+    // Add leads (could be multiple, comma-separated)
+    if (project.leads) {
+      const leads = project.leads.split(',').map(email => email.trim()).filter(email => email);
+      assignableUsers.push(...leads);
+    }
+    
+    // Add team members (comma-separated)
+    if (project.team_members) {
+      const teamMembers = project.team_members.split(',').map(email => email.trim()).filter(email => email);
+      assignableUsers.push(...teamMembers);
+    }
+    
+    // Remove duplicates and return
+    return [...new Set(assignableUsers)];
+  };
+
   const handleSave = async () => {
     try {
+      // For old tickets without reporter, set it to current user when saving
+      if (!editIssue.reporter || editIssue.reporter === '' || editIssue.reporter === '(Not set)') {
+        const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+        const reporterEmail = currentUser.email || 'system';
+        editIssue.reporter = reporterEmail;
+        console.log('Auto-setting reporter for old ticket:', reporterEmail);
+      }
       await updateIssueAPI(editIssue);
       const refreshed = await listIssues(currentProject ? currentProject.id : null);
       setIssues(refreshed);
@@ -835,10 +910,13 @@ export default function KanbanBoard() {
         listIssues(null) // Fetch ALL tickets
       ]);
       
-      // Filter to user's projects
-      const userProjects = projects.filter(p => 
-        p.leads && p.leads.toLowerCase().includes(user?.email?.toLowerCase())
-      );
+      // Filter to user's projects (as lead OR team member)
+      const userEmail = user?.email?.toLowerCase();
+      const userProjects = projects.filter(p => {
+        const isLead = p.leads && p.leads.toLowerCase().includes(userEmail);
+        const isTeamMember = p.team_members && p.team_members.toLowerCase().includes(userEmail);
+        return isLead || isTeamMember;
+      });
       const userProjectIds = userProjects.map(p => p.id);
       
       const filteredEpics = updatedEpics.filter(epic => 
@@ -971,10 +1049,85 @@ export default function KanbanBoard() {
     );
   }
 
-  const swimlanes = getSwimlanes(issues, epics);
+  // Filter epics and issues based on selected project
+  const filteredEpics = selectedProjectFilter 
+    ? epics.filter(epic => epic.projectId === selectedProjectFilter)
+    : epics;
+  
+  const filteredIssues = selectedProjectFilter
+    ? issues.filter(issue => {
+        // Check if issue belongs to any epic of the selected project
+        const epic = epics.find(e => e.id === issue.epic);
+        return epic && epic.projectId === selectedProjectFilter;
+      })
+    : issues;
+  
+  const swimlanes = getSwimlanes(filteredIssues, filteredEpics);
 
   return (
     <div className="board-wrap">
+      {/* Project Filter Dropdown */}
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: '12px',
+        padding: '16px 20px',
+        background: '#FFFFFF',
+        borderBottom: '2px solid #DFE1E6',
+        marginBottom: '16px'
+      }}>
+        <label style={{ fontSize: '14px', fontWeight: 600, color: '#172B4D', marginRight: '8px' }}>
+          Filter by Project:
+        </label>
+        <select
+          value={selectedProjectFilter || ''}
+          onChange={(e) => setSelectedProjectFilter(e.target.value ? parseInt(e.target.value) : null)}
+          style={{
+            padding: '8px 12px',
+            border: '1px solid #DFE1E6',
+            borderRadius: '4px',
+            fontSize: '14px',
+            background: '#FFFFFF',
+            cursor: 'pointer',
+            minWidth: '250px',
+            outline: 'none',
+          }}
+        >
+          <option value="">All Projects ({projects.length})</option>
+          {projects.map(project => (
+            <option key={project.id} value={project.id}>
+              {project.name}
+            </option>
+          ))}
+        </select>
+        {selectedProjectFilter && (
+          <button
+            onClick={() => setSelectedProjectFilter(null)}
+            style={{
+              padding: '6px 12px',
+              background: '#FFAB00',
+              color: '#FFFFFF',
+              border: 'none',
+              borderRadius: '4px',
+              fontSize: '13px',
+              cursor: 'pointer',
+              fontWeight: 500,
+            }}
+          >
+            Clear Filter
+          </button>
+        )}
+      </div>
+
+      <div style={{
+        padding: '0 20px 16px 20px',
+        fontSize: '14px',
+        color: '#6B778C',
+        fontWeight: 500
+      }}>
+        Showing {filteredEpics.length} epic{filteredEpics.length !== 1 ? 's' : ''} - {filteredIssues.length} ticket{filteredIssues.length !== 1 ? 's' : ''}
+      </div>
+
       {/* Epic management buttons */}
       <div className="epic-management-section">
         {currentProject && (
@@ -982,11 +1135,20 @@ export default function KanbanBoard() {
             fontSize: '16px',
             color: '#5e6c84',
             margin: '0 0 20px 0',
-            fontWeight: '500'
+            fontWeight: '500',
+            display: 'none'
           }}>
-            {projects.filter(p => p.leads && p.leads.toLowerCase().includes(user?.email?.toLowerCase())).length > 1 
-              ? `Showing all your projects (${projects.filter(p => p.leads && p.leads.toLowerCase().includes(user?.email?.toLowerCase())).length})` 
-              : `${currentProject.name} Board`}
+            {(() => {
+              const userEmail = user?.email?.toLowerCase();
+              const userProjects = projects.filter(p => {
+                const isLead = p.leads && p.leads.toLowerCase().includes(userEmail);
+                const isTeamMember = p.team_members && p.team_members.toLowerCase().includes(userEmail);
+                return isLead || isTeamMember;
+              });
+              return userProjects.length > 1 
+                ? `Showing all your projects (${userProjects.length})` 
+                : `${currentProject.name} Board`;
+            })()}
           </p>
         )}
         <div className="epic-buttons-container">
@@ -1011,7 +1173,12 @@ export default function KanbanBoard() {
                   style={{ marginTop: '10px' }}
                 >
                   <option value="">Select Project...</option>
-                  {projects.filter(p => p.leads && p.leads.toLowerCase().includes(user?.email?.toLowerCase())).map(project => (
+                  {projects.filter(p => {
+                    const userEmail = user?.email?.toLowerCase();
+                    const isLead = p.leads && p.leads.toLowerCase().includes(userEmail);
+                    const isTeamMember = p.team_members && p.team_members.toLowerCase().includes(userEmail);
+                    return isLead || isTeamMember;
+                  }).map(project => (
                     <option key={project.id} value={project.id}>{project.name}</option>
                   ))}
                 </select>
@@ -1119,9 +1286,8 @@ export default function KanbanBoard() {
                               {issue.dueDate && <span className="card-due">📅 {issue.dueDate}</span>}
                               <span className={`card-priority ${issue.priority.toLowerCase()}`}>⚑ {issue.priority}</span>
                               {issue.assignee && (
-                                <span className="card-assignee" onMouseEnter={() => setHoveredAssigneeId(issue.id)} onMouseLeave={() => setHoveredAssigneeId(null)} style={{ position: 'relative', cursor: 'default', userSelect: 'none' }}>
-                                  👤
-                                  {isHovered && <div className="assignee-tooltip">{issue.assignee}</div>}
+                                <span className="card-assignee" style={{ fontSize: '12px', color: '#5e6c84', marginLeft: '8px' }}>
+                                  👤 {issue.assignee}
                                 </span>
                               )}
                             </div>
@@ -1185,7 +1351,7 @@ export default function KanbanBoard() {
               {editIssue?.title || selectedIssue.title}
             </h2>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '20px', marginBottom: '20px' }}>
               <div>
                 <label style={{ display: 'block', marginBottom: '5px', fontWeight: '600' }}>Title</label>
                 <input
@@ -1200,6 +1366,29 @@ export default function KanbanBoard() {
                     fontSize: '14px'
                   }}
                 />
+              </div>
+              <div>
+                <label style={{ display: 'block', marginBottom: '5px', fontWeight: '600' }}>Status</label>
+                <select
+                  value={editIssue?.status || ''}
+                  onChange={(e) => setEditIssue(prev => ({ ...prev, status: e.target.value }))}
+                  style={{
+                    width: '100%',
+                    padding: '8px',
+                    border: '1px solid #d1d5db',
+                    borderRadius: '6px',
+                    fontSize: '14px'
+                  }}
+                >
+                  <option value="backlog">Backlog</option>
+                  <option value="todo">To Do</option>
+                  <option value="analysis">Analysis</option>
+                  <option value="inprogress">In Progress</option>
+                  <option value="blocked">Blocked</option>
+                  <option value="code review">Code Review</option>
+                  <option value="qa">QA</option>
+                  <option value="done">Done</option>
+                </select>
               </div>
               <div>
                 <label style={{ display: 'block', marginBottom: '5px', fontWeight: '600' }}>Priority</label>
@@ -1221,6 +1410,71 @@ export default function KanbanBoard() {
               </div>
             </div>
 
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '20px', marginBottom: '20px' }}>
+              <div>
+                <label style={{ display: 'block', marginBottom: '5px', fontWeight: '600' }}>Assignee</label>
+                <select
+                  value={editIssue?.assignee || ''}
+                  onChange={(e) => {
+                    const newAssignee = e.target.value;
+                    setEditIssue(prev => {
+                      // If assignee is being changed AND it's an actual change, update reporter
+                      if (newAssignee && prev.assignee && newAssignee !== prev.assignee) {
+                        const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+                        console.log(`Assignee changed from "${prev.assignee}" to "${newAssignee}", reporter set to: ${currentUser.email}`);
+                        return { ...prev, assignee: newAssignee, reporter: currentUser.email || prev.reporter };
+                      }
+                      return { ...prev, assignee: newAssignee };
+                    });
+                  }}
+                  style={{
+                    width: '100%',
+                    padding: '8px',
+                    border: '1px solid #d1d5db',
+                    borderRadius: '6px',
+                    fontSize: '14px',
+                    backgroundColor: 'white',
+                    cursor: 'pointer'
+                  }}
+                >
+                  <option value="">Select assignee...</option>
+                  {getAssignableUsers(editIssue).map(userEmail => (
+                    <option key={userEmail} value={userEmail}>{userEmail}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label style={{ display: 'block', marginBottom: '5px', fontWeight: '600' }}>Start Date</label>
+                <input
+                  type="date"
+                  value={editIssue?.startDate || ''}
+                  onChange={(e) => setEditIssue(prev => ({ ...prev, startDate: e.target.value }))}
+                  style={{
+                    width: '100%',
+                    padding: '8px',
+                    border: '1px solid #d1d5db',
+                    borderRadius: '6px',
+                    fontSize: '14px'
+                  }}
+                />
+              </div>
+              <div>
+                <label style={{ display: 'block', marginBottom: '5px', fontWeight: '600' }}>Due Date</label>
+                <input
+                  type="date"
+                  value={editIssue?.dueDate || ''}
+                  onChange={(e) => setEditIssue(prev => ({ ...prev, dueDate: e.target.value }))}
+                  style={{
+                    width: '100%',
+                    padding: '8px',
+                    border: '1px solid #d1d5db',
+                    borderRadius: '6px',
+                    fontSize: '14px'
+                  }}
+                />
+              </div>
+            </div>
+
             <div style={{ marginBottom: '20px' }}>
               <label style={{ display: 'block', marginBottom: '5px', fontWeight: '600' }}>Description</label>
               <textarea
@@ -1233,6 +1487,24 @@ export default function KanbanBoard() {
                   borderRadius: '6px',
                   fontSize: '14px',
                   height: '80px',
+                  resize: 'vertical'
+                }}
+              />
+            </div>
+
+            <div style={{ marginBottom: '20px' }}>
+              <label style={{ display: 'block', marginBottom: '5px', fontWeight: '600' }}>Comments</label>
+              <textarea
+                value={editIssue?.comments || ''}
+                onChange={(e) => setEditIssue(prev => ({ ...prev, comments: e.target.value }))}
+                placeholder="Add comments..."
+                style={{
+                  width: '100%',
+                  padding: '8px',
+                  border: '1px solid #d1d5db',
+                  borderRadius: '6px',
+                  fontSize: '14px',
+                  height: '60px',
                   resize: 'vertical'
                 }}
               />

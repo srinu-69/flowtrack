@@ -21,6 +21,7 @@ const listProjects = async () => {
         name: project.name,
         type: project.project_type,
         leads: project.leads ? project.leads.split(',').map(l => l.trim()) : [],
+        team_members: project.team_members ? project.team_members.split(',').map(t => t.trim()) : [],
         description: project.description || '',
         createdAt: project.created_at,
         lastUpdated: project.updated_at
@@ -34,18 +35,23 @@ const listProjects = async () => {
 
 const addProject = async (project) => {
   try {
+    const payload = {
+      name: project.name,
+      project_key: project.key,
+      project_type: project.type,
+      leads: project.leads.join(', '),
+      team_members: project.team_members && project.team_members.length > 0 ? project.team_members.join(', ') : null,
+      description: project.description
+    };
+    
+    console.log('Sending to backend:', payload);
+    
     const response = await fetch('http://localhost:8000/projects', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        name: project.name,
-        project_key: project.key,
-        project_type: project.type,
-        leads: project.leads.join(', '),
-        description: project.description
-      }),
+      body: JSON.stringify(payload),
     });
     if (response.ok) {
       const newProject = await response.json();
@@ -55,6 +61,7 @@ const addProject = async (project) => {
         name: newProject.name,
         type: newProject.project_type,
         leads: newProject.leads ? newProject.leads.split(',').map(l => l.trim()) : [],
+        team_members: newProject.team_members ? newProject.team_members.split(',').map(t => t.trim()) : [],
         description: newProject.description || '',
         createdAt: newProject.created_at,
         lastUpdated: newProject.updated_at
@@ -68,18 +75,23 @@ const addProject = async (project) => {
 
 const updateProject = async (id, project) => {
   try {
+    const payload = {
+      name: project.name,
+      project_key: project.key,
+      project_type: project.type,
+      leads: project.leads.join(', '),
+      team_members: project.team_members && project.team_members.length > 0 ? project.team_members.join(', ') : null,
+      description: project.description
+    };
+    
+    console.log('Updating project with data:', payload);
+    
     const response = await fetch(`http://localhost:8000/projects/${id}`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        name: project.name,
-        project_key: project.key,
-        project_type: project.type,
-        leads: project.leads.join(', '),
-        description: project.description
-      }),
+      body: JSON.stringify(payload),
     });
     if (response.ok) {
       const updatedProject = await response.json();
@@ -89,6 +101,7 @@ const updateProject = async (id, project) => {
         name: updatedProject.name,
         type: updatedProject.project_type,
         leads: updatedProject.leads ? updatedProject.leads.split(',').map(l => l.trim()) : [],
+        team_members: updatedProject.team_members ? updatedProject.team_members.split(',').map(t => t.trim()) : [],
         description: updatedProject.description || '',
         createdAt: updatedProject.created_at,
         lastUpdated: updatedProject.updated_at
@@ -178,6 +191,8 @@ export default function ProjectList() {
   const [key, setKey] = useState('');
   const [type, setType] = useState('Software');
   const [leadsInput, setLeadsInput] = useState('');
+  const [teamMembers, setTeamMembers] = useState([]); // Selected team members (array of emails)
+  const [availableUsers, setAvailableUsers] = useState([]); // Users from user management
   const [description, setDescription] = useState(''); // Added description state
   const [expanded, setExpanded] = useState({});
   const [editingId, setEditingId] = useState(null);
@@ -185,17 +200,20 @@ export default function ProjectList() {
   const [editKey, setEditKey] = useState('');
   const [editType, setEditType] = useState('');
   const [editLeadsInput, setEditLeadsInput] = useState('');
+  const [editTeamMembers, setEditTeamMembers] = useState([]); // Edit team members
   const [editDescription, setEditDescription] = useState(''); // Added edit description state
   const [registeredEmails, setRegisteredEmails] = useState([]); // List of registered user emails
   const [emailValidationError, setEmailValidationError] = useState('');
   const [hoveredCardId, setHoveredCardId] = useState(null); // Track hovered card
+  const [teamMembersDropdownOpen, setTeamMembersDropdownOpen] = useState(false); // Dropdown state for create
+  const [editTeamMembersDropdownOpen, setEditTeamMembersDropdownOpen] = useState(false); // Dropdown state for edit
 
   useEffect(() => {
     loadProjects();
     loadRegisteredUsers();
   }, []);
 
-  // Fetch registered users for email validation
+  // Fetch registered users for email validation and team members dropdown
   const loadRegisteredUsers = async () => {
     try {
       const response = await fetch('http://localhost:8000/users-management');
@@ -203,7 +221,8 @@ export default function ProjectList() {
         const users = await response.json();
         const emails = users.map(user => user.email.toLowerCase());
         setRegisteredEmails(emails);
-        console.log('Loaded registered user emails:', emails);
+        setAvailableUsers(users); // Store full user objects for dropdown
+        console.log('Loaded registered users:', users.length);
       }
     } catch (error) {
       console.error('Error loading registered users:', error);
@@ -269,13 +288,25 @@ export default function ProjectList() {
       leads: leadsInput
         ? leadsInput.split(',').map(l => l.trim()).filter(l => l)
         : ['Unassigned'],
+      team_members: teamMembers, // Include team members array
       description: description || '', // Include description
     };
+    
+    // Log what we're sending to help debug
+    console.log('Creating project with data:', {
+      name: p.name,
+      leads: p.leads,
+      team_members: p.team_members,
+      team_members_count: p.team_members.length
+    });
+    
     try {
       await addProject(p);
       setName('');
       setKey('');
       setLeadsInput('');
+      setTeamMembers([]); // Reset team members
+      setTeamMembersDropdownOpen(false); // Close dropdown
       setType('Software');
       setDescription(''); // Reset description
       setEmailValidationError('');
@@ -302,6 +333,7 @@ export default function ProjectList() {
     setEditKey(p.key);
     setEditType(p.type);
     setEditLeadsInput((p.leads || []).join(', '));
+    setEditTeamMembers(p.team_members || []); // Set team members for editing
     setEditDescription(p.description || ''); // Set description for editing
   };
 
@@ -320,11 +352,13 @@ export default function ProjectList() {
       leads: editLeadsInput
         ? editLeadsInput.split(',').map(l => l.trim()).filter(l => l)
         : ['Unassigned'],
+      team_members: editTeamMembers, // Include team members in update
       description: editDescription, // Save description
     };
     try {
       await updateProject(id, updated);
       setEditingId(null);
+      setEditTeamMembersDropdownOpen(false); // Close dropdown after save
       loadProjects();
     } catch (error) {
       console.error('Error updating project:', error);
@@ -379,6 +413,127 @@ export default function ProjectList() {
               ⚠ {emailValidationError}
             </p>
           )}
+        </div>
+        
+        {/* Team Members Dropdown - Looks like text field */}
+        <div style={{ marginBottom: '1rem', position: 'relative' }}>
+          <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '0.25rem', color: '#172B4D' }}>
+            Team Members
+          </label>
+          
+          {/* Dropdown trigger - looks like text input */}
+          <div
+            onClick={() => setTeamMembersDropdownOpen(!teamMembersDropdownOpen)}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              padding: '8px',
+              border: '1px solid #DFE1E6',
+              borderRadius: '4px',
+              background: '#FFFFFF',
+              cursor: 'pointer',
+              minHeight: '38px',
+              fontSize: '14px',
+            }}
+          >
+            <FiUsers style={{ marginRight: '8px', color: '#6B778C', flexShrink: 0 }} />
+            <div style={{ flex: 1, color: teamMembers.length === 0 ? '#6B778C' : '#172B4D' }}>
+              {teamMembers.length === 0 ? (
+                'Select team members...'
+              ) : (
+                `${teamMembers.length} member${teamMembers.length > 1 ? 's' : ''} selected`
+              )}
+            </div>
+            <FiChevronDown style={{ color: '#6B778C', flexShrink: 0, transform: teamMembersDropdownOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }} />
+          </div>
+
+          {/* Dropdown panel */}
+          {teamMembersDropdownOpen && (
+            <>
+              {/* Backdrop to close dropdown when clicking outside */}
+              <div
+                onClick={() => setTeamMembersDropdownOpen(false)}
+                style={{
+                  position: 'fixed',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  zIndex: 999,
+                }}
+              />
+              
+              {/* Dropdown content */}
+              <div style={{
+                position: 'absolute',
+                top: '100%',
+                left: 0,
+                right: 0,
+                marginTop: '4px',
+                maxHeight: '200px',
+                overflowY: 'auto',
+                border: '1px solid #DFE1E6',
+                borderRadius: '4px',
+                background: '#FFFFFF',
+                boxShadow: '0 4px 8px rgba(0,0,0,0.1)',
+                zIndex: 1000,
+                padding: '8px'
+              }}>
+                {availableUsers.length === 0 ? (
+                  <p style={{ fontSize: '12px', color: '#6B778C', textAlign: 'center', margin: '8px 0' }}>
+                    Loading users...
+                  </p>
+                ) : (
+                  availableUsers.map(user => (
+                    <label 
+                      key={user.email}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        padding: '8px',
+                        cursor: 'pointer',
+                        borderRadius: '3px',
+                        fontSize: '13px',
+                      }}
+                      onMouseEnter={e => e.currentTarget.style.background = '#F4F5F7'}
+                      onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={teamMembers.includes(user.email)}
+                        onChange={e => {
+                          e.stopPropagation();
+                          if (e.target.checked) {
+                            setTeamMembers([...teamMembers, user.email]);
+                          } else {
+                            setTeamMembers(teamMembers.filter(email => email !== user.email));
+                          }
+                        }}
+                        style={{
+                          marginRight: '8px',
+                          cursor: 'pointer',
+                          width: '16px',
+                          height: '16px',
+                          flexShrink: 0
+                        }}
+                      />
+                      <span style={{ flex: 1, color: '#172B4D' }}>
+                        {user.first_name} {user.last_name}
+                      </span>
+                      <span style={{ fontSize: '11px', color: '#6B778C', marginLeft: '8px', flexShrink: 0 }}>
+                        {user.email}
+                      </span>
+                    </label>
+                  ))
+                )}
+              </div>
+            </>
+          )}
+          
+          {/* Helper text */}
+          <p style={{ fontSize: '11px', color: '#6B778C', marginTop: '4px', marginBottom: 0 }}>
+            ⓘ Click to select multiple team members
+          </p>
         </div>
         
         {/* Added Description Field */}
@@ -458,6 +613,122 @@ export default function ProjectList() {
                     </p>
                   </div>
                   
+                  {/* Team Members Dropdown in Edit Mode */}
+                  <div style={{ marginBottom: '1rem', position: 'relative' }}>
+                    <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '0.25rem', color: '#172B4D' }}>
+                      Team Members
+                    </label>
+                    
+                    {/* Dropdown trigger */}
+                    <div
+                      onClick={() => setEditTeamMembersDropdownOpen(!editTeamMembersDropdownOpen)}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        padding: '8px',
+                        border: '1px solid #DFE1E6',
+                        borderRadius: '4px',
+                        background: '#FFFFFF',
+                        cursor: 'pointer',
+                        minHeight: '38px',
+                        fontSize: '14px',
+                      }}
+                    >
+                      <FiUsers style={{ marginRight: '8px', color: '#6B778C', flexShrink: 0 }} />
+                      <div style={{ flex: 1, color: editTeamMembers.length === 0 ? '#6B778C' : '#172B4D' }}>
+                        {editTeamMembers.length === 0 ? (
+                          'Select team members...'
+                        ) : (
+                          `${editTeamMembers.length} member${editTeamMembers.length > 1 ? 's' : ''} selected`
+                        )}
+                      </div>
+                      <FiChevronDown style={{ color: '#6B778C', flexShrink: 0, transform: editTeamMembersDropdownOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }} />
+                    </div>
+
+                    {/* Dropdown panel */}
+                    {editTeamMembersDropdownOpen && (
+                      <>
+                        {/* Backdrop */}
+                        <div
+                          onClick={() => setEditTeamMembersDropdownOpen(false)}
+                          style={{
+                            position: 'fixed',
+                            top: 0,
+                            left: 0,
+                            right: 0,
+                            bottom: 0,
+                            zIndex: 999,
+                          }}
+                        />
+                        
+                        {/* Dropdown content */}
+                        <div style={{
+                          position: 'absolute',
+                          top: '100%',
+                          left: 0,
+                          right: 0,
+                          marginTop: '4px',
+                          maxHeight: '180px',
+                          overflowY: 'auto',
+                          border: '1px solid #DFE1E6',
+                          borderRadius: '4px',
+                          background: '#FFFFFF',
+                          boxShadow: '0 4px 8px rgba(0,0,0,0.1)',
+                          zIndex: 1000,
+                          padding: '8px'
+                        }}>
+                          {availableUsers.length === 0 ? (
+                            <p style={{ fontSize: '12px', color: '#6B778C', textAlign: 'center', margin: '8px 0' }}>
+                              Loading users...
+                            </p>
+                          ) : (
+                            availableUsers.map(user => (
+                              <label 
+                                key={user.email}
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  padding: '6px 8px',
+                                  cursor: 'pointer',
+                                  borderRadius: '3px',
+                                  fontSize: '12px',
+                                }}
+                                onMouseEnter={e => e.currentTarget.style.background = '#F4F5F7'}
+                                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={editTeamMembers.includes(user.email)}
+                                  onChange={e => {
+                                    e.stopPropagation();
+                                    if (e.target.checked) {
+                                      setEditTeamMembers([...editTeamMembers, user.email]);
+                                    } else {
+                                      setEditTeamMembers(editTeamMembers.filter(email => email !== user.email));
+                                    }
+                                  }}
+                                  style={{
+                                    marginRight: '8px',
+                                    cursor: 'pointer',
+                                    width: '14px',
+                                    height: '14px',
+                                    flexShrink: 0
+                                  }}
+                                />
+                                <span style={{ flex: 1, color: '#172B4D' }}>
+                                  {user.first_name} {user.last_name}
+                                </span>
+                                <span style={{ fontSize: '10px', color: '#6B778C', marginLeft: '4px', flexShrink: 0 }}>
+                                  {user.email}
+                                </span>
+                              </label>
+                            ))
+                          )}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                  
                   {/* Added Editable Description Field */}
                   <TextAreaField 
                     label="Description" 
@@ -471,7 +742,7 @@ export default function ProjectList() {
                     <button onClick={() => saveEdit(p.id)} style={{ background: '#36B37E', color: '#fff', border: 'none', padding: '6px 10px', borderRadius: '4px', cursor: 'pointer' }}>
                       <FiCheck />
                     </button>
-                    <button onClick={() => setEditingId(null)} style={{ background: '#FF5630', color: '#fff', border: 'none', padding: '6px 10px', borderRadius: '4px', cursor: 'pointer' }}>
+                    <button onClick={() => { setEditingId(null); setEditTeamMembersDropdownOpen(false); }} style={{ background: '#FF5630', color: '#fff', border: 'none', padding: '6px 10px', borderRadius: '4px', cursor: 'pointer' }}>
                       <FiX />
                     </button>
                   </div>
@@ -500,6 +771,12 @@ export default function ProjectList() {
                     <p style={{ fontSize: '13px', color: '#6B778C', marginBottom: '0.5rem' }}>{p.type || 'Software'} Project</p>
                     <p style={{ fontSize: '13px', marginBottom: '0.5rem' }}>Key: {p.key || 'N/A'}</p>
                     <p style={{ fontSize: '13px', marginBottom: '0.5rem' }}>Leads: {getLeadsDisplay(p)}</p>
+                    {p.team_members && p.team_members.length > 0 && (
+                      <p style={{ fontSize: '13px', marginBottom: '0.5rem', color: '#0052CC' }}>
+                        <FiUsers size={12} style={{ marginRight: '4px', verticalAlign: 'middle' }} />
+                        Team: {p.team_members.join(', ')}
+                      </p>
+                    )}
                   </div>
 
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '1rem' }}>
