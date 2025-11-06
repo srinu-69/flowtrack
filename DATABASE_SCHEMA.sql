@@ -73,6 +73,8 @@ CREATE TABLE users_management (
     email VARCHAR(255) UNIQUE NOT NULL,              -- Unique email address
     role VARCHAR(50) NOT NULL DEFAULT 'Developer',   -- Default role
     department VARCHAR(100) NOT NULL DEFAULT 'Engineering', -- Default department
+    tickets_issued INTEGER NOT NULL DEFAULT 0,       -- Number of tickets issued by user
+    tickets_resolved INTEGER NOT NULL DEFAULT 0,     -- Number of tickets resolved by user
     active BOOLEAN NOT NULL DEFAULT TRUE,            -- Active status
     language VARCHAR(50) NOT NULL DEFAULT 'English', -- Preferred language
     mobile_number VARCHAR(30),                       -- Optional mobile number

@@ -112,6 +112,8 @@ class UsersManagement(Base):
     email = Column(String(255), unique=True, nullable=False)
     role = Column(String(50), nullable=False, default='Developer')
     department = Column(String(100), nullable=False, default='Engineering')
+    tickets_issued = Column(Integer, nullable=False, default=0)
+    tickets_resolved = Column(Integer, nullable=False, default=0)
     active = Column(Boolean, nullable=False, default=True)
     language = Column(String(50), nullable=False, default='English')
     mobile_number = Column(String(30), nullable=True)

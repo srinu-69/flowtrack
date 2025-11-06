@@ -420,6 +420,8 @@ class UsersManagementCreate(BaseModel):
     email: EmailStr
     role: str = 'Developer'
     department: str = 'Engineering'
+    tickets_issued: int = 0
+    tickets_resolved: int = 0
     active: bool = True
     language: str = 'English'
     mobile_number: Optional[str] = None
@@ -434,6 +436,8 @@ class UsersManagementUpdate(BaseModel):
     email: Optional[EmailStr] = None
     role: Optional[str] = None
     department: Optional[str] = None
+    tickets_issued: Optional[int] = None
+    tickets_resolved: Optional[int] = None
     active: Optional[bool] = None
     language: Optional[str] = None
     mobile_number: Optional[str] = None
@@ -449,6 +453,8 @@ class UsersManagementOut(BaseModel):
     email: str
     role: str
     department: str
+    tickets_issued: int
+    tickets_resolved: int
     active: bool
     language: str
     mobile_number: Optional[str] = None

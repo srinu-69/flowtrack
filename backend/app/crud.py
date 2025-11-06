@@ -339,6 +339,30 @@ async def get_admin_by_email(session: AsyncSession, email: str) -> Optional[mode
     return res.scalars().first()
 
 # Ticket CRUD Functions
+async def _update_tickets_issued_counter(session: AsyncSession, email: str, increment: bool = True):
+    """Helper function to update tickets_issued counter for a user"""
+    if not email:
+        return
+    user = await get_users_management_by_email(session, email)
+    if user:
+        if increment:
+            user.tickets_issued = (user.tickets_issued or 0) + 1
+        else:
+            user.tickets_issued = max(0, (user.tickets_issued or 0) - 1)
+        await session.commit()
+
+async def _update_tickets_resolved_counter(session: AsyncSession, email: str, increment: bool = True):
+    """Helper function to update tickets_resolved counter for a user"""
+    if not email:
+        return
+    user = await get_users_management_by_email(session, email)
+    if user:
+        if increment:
+            user.tickets_resolved = (user.tickets_resolved or 0) + 1
+        else:
+            user.tickets_resolved = max(0, (user.tickets_resolved or 0) - 1)
+        await session.commit()
+
 async def create_ticket(session: AsyncSession, ticket_in: schemas.TicketCreate) -> models.Ticket:
     """Create a new ticket"""
     ticket = models.Ticket(
@@ -355,6 +379,16 @@ async def create_ticket(session: AsyncSession, ticket_in: schemas.TicketCreate) 
     session.add(ticket)
     await session.commit()
     await session.refresh(ticket)
+    
+    # Update counters if assignee is set
+    if ticket.assignee:
+        if ticket.status == 'Done':
+            # If ticket is created as Done, increment tickets_resolved directly
+            await _update_tickets_resolved_counter(session, ticket.assignee, increment=True)
+        else:
+            # If ticket is not Done, increment tickets_issued
+            await _update_tickets_issued_counter(session, ticket.assignee, increment=True)
+    
     return ticket
 
 async def get_ticket(session: AsyncSession, ticket_id: int) -> Optional[models.Ticket]:
@@ -380,6 +414,10 @@ async def update_ticket(session: AsyncSession, ticket_id: int, ticket_in: schema
     if not ticket:
         return None
     
+    # Store old values for counter updates
+    old_assignee = ticket.assignee
+    old_status = ticket.status
+    
     if ticket_in.title is not None:
         ticket.title = ticket_in.title
     if ticket_in.description is not None:
@@ -399,6 +437,42 @@ async def update_ticket(session: AsyncSession, ticket_id: int, ticket_in: schema
     
     await session.commit()
     await session.refresh(ticket)
+    
+    # Handle counter updates
+    new_assignee = ticket.assignee if ticket_in.assignee is not None else old_assignee
+    new_status = ticket.status if ticket_in.status is not None else old_status
+    
+    # Handle assignee changes FIRST (before status changes)
+    if ticket_in.assignee is not None and old_assignee != new_assignee:
+        # Remove from old assignee
+        if old_assignee:
+            if old_status == 'Done':
+                await _update_tickets_resolved_counter(session, old_assignee, increment=False)
+            else:
+                await _update_tickets_issued_counter(session, old_assignee, increment=False)
+        
+        # Add to new assignee
+        if new_assignee:
+            if new_status == 'Done':
+                await _update_tickets_resolved_counter(session, new_assignee, increment=True)
+            else:
+                await _update_tickets_issued_counter(session, new_assignee, increment=True)
+    
+    # Handle status changes (only if assignee didn't change)
+    if ticket_in.status is not None and old_status != new_status and ticket_in.assignee is None:
+        assignee_for_status = old_assignee
+        if assignee_for_status:
+            # If moving to Done
+            if new_status == 'Done' and old_status != 'Done':
+                # Increment tickets_resolved and decrement tickets_issued
+                await _update_tickets_resolved_counter(session, assignee_for_status, increment=True)
+                await _update_tickets_issued_counter(session, assignee_for_status, increment=False)
+            # If moving from Done to something else
+            elif old_status == 'Done' and new_status != 'Done':
+                # Decrement tickets_resolved and increment tickets_issued
+                await _update_tickets_resolved_counter(session, assignee_for_status, increment=False)
+                await _update_tickets_issued_counter(session, assignee_for_status, increment=True)
+    
     return ticket
 
 async def delete_ticket(session: AsyncSession, ticket_id: int) -> bool:
@@ -406,6 +480,16 @@ async def delete_ticket(session: AsyncSession, ticket_id: int) -> bool:
     ticket = await get_ticket(session, ticket_id)
     if not ticket:
         return False
+    
+    # Update counters before deleting
+    if ticket.assignee:
+        if ticket.status == 'Done':
+            # If ticket was Done, decrement tickets_resolved
+            await _update_tickets_resolved_counter(session, ticket.assignee, increment=False)
+        else:
+            # If ticket was not Done, decrement tickets_issued
+            await _update_tickets_issued_counter(session, ticket.assignee, increment=False)
+    
     await session.delete(ticket)
     await session.commit()
     return True
@@ -636,6 +720,8 @@ async def create_users_management(session: AsyncSession, user_in: schemas.UsersM
         email=user_in.email,
         role=user_in.role,
         department=user_in.department,
+        tickets_issued=user_in.tickets_issued,
+        tickets_resolved=user_in.tickets_resolved,
         active=user_in.active,
         language=user_in.language,
         mobile_number=user_in.mobile_number,
@@ -684,6 +770,10 @@ async def update_users_management(session: AsyncSession, user_id: int, user_in: 
         user.role = user_in.role
     if user_in.department is not None:
         user.department = user_in.department
+    if user_in.tickets_issued is not None:
+        user.tickets_issued = user_in.tickets_issued
+    if user_in.tickets_resolved is not None:
+        user.tickets_resolved = user_in.tickets_resolved
     if user_in.active is not None:
         user.active = user_in.active
     if user_in.language is not None:

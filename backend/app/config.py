@@ -18,7 +18,7 @@ from pydantic_settings import BaseSettings
 class Settings(BaseSettings):
     # PostgreSQL database connection
     # Format: postgresql+asyncpg://username:password@host:port/database_name
-    database_url: str = "postgresql+asyncpg://postgres:12345@localhost:5432/flow"
+    database_url: str = "postgresql+asyncpg://postgres:12345@localhost:5432/flowtrack"
     backend_host: str = "0.0.0.0"
     backend_port: int = 8000
 

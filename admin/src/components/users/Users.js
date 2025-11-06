@@ -1127,6 +1127,8 @@ export default function Users() {
           email: user.email,
           role: user.role,
           department: user.department,
+          ticketsIssued: user.tickets_issued || 0,
+          ticketsResolved: user.tickets_resolved || 0,
           active: user.active,
           language: user.language || 'English',
           mobileNumber: user.mobile_number,
@@ -1424,6 +1426,8 @@ export default function Users() {
                   <th>Email</th>
                   <th>Department</th>
                   <th>Role</th>
+                  <th>Tickets Issued</th>
+                  <th>Tickets Resolved</th>
                   <th>Active</th>
                   <th>Actions</th>
                 </tr>
@@ -1478,6 +1482,12 @@ export default function Users() {
                           </div>
                         </td>
                         <td>
+                          <span>{editForm.ticketsIssued !== undefined ? editForm.ticketsIssued : (u.ticketsIssued || 0)}</span>
+                        </td>
+                        <td>
+                          <span>{editForm.ticketsResolved !== undefined ? editForm.ticketsResolved : (u.ticketsResolved || 0)}</span>
+                        </td>
+                        <td>
                           <input type="checkbox"
                             name="active"
                             checked={editForm.active || false}
@@ -1517,6 +1527,8 @@ export default function Users() {
                             {u.role}
                           </span>
                         </td>
+                        <td>{u.ticketsIssued || 0}</td>
+                        <td>{u.ticketsResolved || 0}</td>
                         <td>
                           <span className={`status-dot ${u.active ? 'status-active' : 'status-inactive'}`}></span>
                         </td>
